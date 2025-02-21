@@ -14,6 +14,7 @@ func TestUnpack(t *testing.T) {
 	}{
 		{input: "a4bc2d5e", expected: "aaaabccddddde"},
 		{input: "abccd", expected: "abccd"},
+		{input: "a1b1c1c1d1", expected: "abccd"},
 		{input: "", expected: ""},
 		{input: "aaa0b", expected: "aab"},
 		{input: "🙃0", expected: ""},
@@ -29,6 +30,7 @@ func TestUnpack(t *testing.T) {
 		{input: "р1у2с3ские0 буквы", expected: "руусссски буквы"},
 		{input: "иероглифы ト0ヨ2タ自動車株式会社3", expected: "иероглифы ヨヨタ自動車株式会社社社"},
 		{input: "🚘トヨタ自動車株式会社 🧨2👍5", expected: "🚘トヨタ自動車株式会社 🧨🧨👍👍👍👍👍"},
+		{input: "🚘ト1ヨ1タ1自1動1車1株1式1会1社1 🧨2👍5🗾2👎0", expected: "🚘トヨタ自動車株式会社 🧨🧨👍👍👍👍👍🗾🗾"},
 	}
 
 	for _, tc := range tests {
