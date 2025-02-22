@@ -9,10 +9,11 @@ import (
 
 var ErrInvalidString = errors.New("invalid string")
 
-func Unpack(s string) (string, error) {
-	const bSlash = "\\"
-	const dblBSlash = "\\\\"
+const bSlash = "\\"
 
+const dblBSlash = "\\\\"
+
+func Unpack(s string) (string, error) {
 	checkBSlash := func(s string) string {
 		if s == dblBSlash {
 			return bSlash
@@ -20,81 +21,72 @@ func Unpack(s string) (string, error) {
 		return s
 	}
 
-	var unpack, buff, cur, raw strings.Builder
+	var unpack strings.Builder
+	var buff, raw string
 
 	for _, v := range s {
-		cur.Reset()
-		cur.WriteRune(v)
-		cnt := -1
-		isDig := false
+		cur := string(v)
+
+		isDig, cnt := false, -1
 
 		// checking the current character, digit, or not
 
-		if i, err := strconv.Atoi(cur.String()); err == nil {
+		if i, err := strconv.Atoi(cur); err == nil {
 			isDig, cnt = true, i
 		}
 
 		// checking for errors
 
-		if isDig && buff.String() == "" {
-			p, c := raw.String(), cur.String()
+		if isDig && buff == "" {
+			p, c := raw, cur
 			return "", fmt.Errorf("digit without symbol or number `%s%s`: %w", p, c, ErrInvalidString)
 		}
 
-		if buff.String() == bSlash && !isDig && cur.String() != bSlash {
-			p, c := raw.String(), cur.String()
+		if buff == bSlash && !isDig && cur != bSlash {
+			p, c := raw, cur
 			return "", fmt.Errorf("you can only escape a digit or a slash `%s%s`: %w", p, c, ErrInvalidString)
 		}
 
 		// checking the backslash conditions, filling the buffer
 
+		raw = cur
+
 		switch {
-		case buff.String() == bSlash && isDig: // \n -> "n"
+		case buff == bSlash && isDig: // \n -> "n"
 			isDig = false
-			buff.Reset()
-			buff.WriteString(cur.String())
-			cur.Reset()
-
-		case buff.String() == bSlash && cur.String() == bSlash: // \\ -> "\"
-			buff.Reset()
-			buff.WriteString(dblBSlash)
-			cur.Reset()
-
-		case buff.String() == "": // save char in buff
-			buff.Reset()
-			buff.WriteString(cur.String())
-			cur.Reset()
+			buff = cur
+			cur = ""
+		case buff == bSlash && cur == bSlash: // \\ -> "\"
+			buff = dblBSlash
+			cur = ""
+		case buff == "": // save char in buff
+			buff = cur
+			cur = ""
 		}
 
 		// unpack string
 
 		switch {
 		case isDig:
-			unpack.WriteString(strings.Repeat(checkBSlash(buff.String()), cnt))
-			buff.Reset()
-			isDig = false
+			unpack.WriteString(strings.Repeat(checkBSlash(buff), cnt))
+			buff = ""
 
-		case buff.String() != "" && cur.String() != "":
-			unpack.WriteString(checkBSlash(buff.String()))
-			buff.Reset()
-			buff.WriteString(cur.String())
-			cur.Reset()
+		case buff != "" && cur != "":
+			unpack.WriteString(checkBSlash(buff))
+			buff = cur
 		}
-
-		raw.Reset()
-		raw.WriteRune(v)
 	}
 
 	// checking for errors
 
-	if buff.String() == bSlash {
+	if buff == bSlash {
 		return "", fmt.Errorf("the backslash is the last one: %w", ErrInvalidString)
 	}
 
 	// unpack string
 
-	if buff.String() != "" {
-		unpack.WriteString(buff.String())
+	if buff != "" {
+		unpack.WriteString(buff)
 	}
 
 	return unpack.String(), nil
