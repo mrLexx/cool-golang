@@ -53,16 +53,16 @@ func Top(s string, cnt int) []string {
 
 	// get top10
 
-	top10 := make([]string, 0, cnt)
+	top := make([]string, 0, cnt)
 
 	for i, v := range sl {
 		if i > cnt-1 {
 			break
 		}
-		top10 = append(top10, v.word)
+		top = append(top, v.word)
 	}
 
-	return top10
+	return top
 }
 
 // Word cleaning
