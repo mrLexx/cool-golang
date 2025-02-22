@@ -14,19 +14,26 @@ func TestUnpack(t *testing.T) {
 	}{
 		{input: "a4bc2d5e", expected: "aaaabccddddde"},
 		{input: "abccd", expected: "abccd"},
+		{input: "a1b1c1c1d1", expected: "abccd"},
 		{input: "", expected: ""},
 		{input: "aaa0b", expected: "aab"},
 		{input: "🙃0", expected: ""},
 		{input: "aaф0b", expected: "aab"},
+		{input: "a5", expected: "aaaaa"},
 		// uncomment if task with asterisk completed
-		// {input: `qwe\4\5`, expected: `qwe45`},
-		// {input: `qwe\45`, expected: `qwe44444`},
-		// {input: `qwe\\5`, expected: `qwe\\\\\`},
-		// {input: `qwe\\\3`, expected: `qwe\3`},
+		{input: `qwe\4\5`, expected: `qwe45`},
+		{input: `qwe\45`, expected: `qwe44444`},
+		{input: `qwe\\5`, expected: `qwe\\\\\`},
+		{input: `qwe\\\3`, expected: `qwe\3`},
+		{input: "٠١2٢3٣0٤٥٦٧٨٩", expected: "٠١١٢٢٢٤٥٦٧٨٩"},
+		{input: `٠١2٢3٣0٤٥٦٧٨٩`, expected: `٠١١٢٢٢٤٥٦٧٨٩`},
+		{input: "р1у2с3ские0 буквы", expected: "руусссски буквы"},
+		{input: "иероглифы ト0ヨ2タ自動車株式会社3", expected: "иероглифы ヨヨタ自動車株式会社社社"},
+		{input: "🚘トヨタ自動車株式会社 🧨2👍5", expected: "🚘トヨタ自動車株式会社 🧨🧨👍👍👍👍👍"},
+		{input: "🚘ト1ヨ1タ1自1動1車1株1式1会1社1 🧨2👍5🗾2👎0", expected: "🚘トヨタ自動車株式会社 🧨🧨👍👍👍👍👍🗾🗾"},
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			result, err := Unpack(tc.input)
 			require.NoError(t, err)
@@ -36,9 +43,8 @@ func TestUnpack(t *testing.T) {
 }
 
 func TestUnpackInvalidString(t *testing.T) {
-	invalidStrings := []string{"3abc", "45", "aaa10b"}
+	invalidStrings := []string{"3abc", "45", "aaa10b", `qwe\\\`, `qw\ne`}
 	for _, tc := range invalidStrings {
-		tc := tc
 		t.Run(tc, func(t *testing.T) {
 			_, err := Unpack(tc)
 			require.Truef(t, errors.Is(err, ErrInvalidString), "actual error %q", err)

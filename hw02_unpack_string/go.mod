@@ -1,6 +1,6 @@
-module github.com/fixme_my_friend/hw02_unpack_string
+module github.com/mrLexx/cool-golang/hw02_unpack_string
 
-go 1.22
+go 1.23
 
 require github.com/stretchr/testify v1.7.0
 
