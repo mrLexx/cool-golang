@@ -53,7 +53,7 @@ func Top(s string, cnt int) []string {
 
 	// get top10
 
-	top10 := make([]string, 0, 10)
+	top10 := make([]string, 0, cnt)
 
 	for i, v := range sl {
 		if i > cnt-1 {
