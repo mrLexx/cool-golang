@@ -10,14 +10,18 @@ import (
 
 var ErrEmptyString = errors.New("empty string")
 
-type Top struct {
-	Word string
-	Cnt  int
+type word struct {
+	word string
+	cnt  int
 }
 
-var re = regexp.MustCompile(`^[",.!-]+|[",.!-]+$`)
+var re = regexp.MustCompile(`^[",.!-?]+|[",.!-?]+$`)
 
 func Top10(s string) []string {
+	return Top(s, 10)
+}
+
+func Top(s string, cnt int) []string {
 	if s == "" {
 		return nil
 	}
@@ -34,17 +38,17 @@ func Top10(s string) []string {
 
 	// move to slice for sort
 
-	sl := make([]Top, 0, len(wds))
+	sl := make([]word, 0, len(wds))
 
 	for k, v := range wds {
-		sl = append(sl, Top{Word: k, Cnt: v})
+		sl = append(sl, word{word: k, cnt: v})
 	}
 
 	sort.Slice(sl, func(i, j int) bool {
-		if sl[i].Cnt != sl[j].Cnt {
-			return sl[i].Cnt > sl[j].Cnt
+		if sl[i].cnt != sl[j].cnt {
+			return sl[i].cnt > sl[j].cnt
 		}
-		return sl[i].Word < sl[j].Word
+		return sl[i].word < sl[j].word
 	})
 
 	// get top10
@@ -52,10 +56,10 @@ func Top10(s string) []string {
 	top10 := make([]string, 0, 10)
 
 	for i, v := range sl {
-		if i > 9 {
+		if i > cnt-1 {
 			break
 		}
-		top10 = append(top10, v.Word)
+		top10 = append(top10, v.word)
 	}
 
 	return top10
