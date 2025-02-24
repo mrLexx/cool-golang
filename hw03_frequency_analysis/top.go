@@ -3,7 +3,6 @@ package hw03frequencyanalysis
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -14,8 +13,6 @@ type word struct {
 	word string
 	cnt  int
 }
-
-var re = regexp.MustCompile(`^[",.!-?]+|[",.!-?]+$`)
 
 func Top10(s string) []string {
 	return Top(s, 10)
@@ -56,7 +53,7 @@ func Top(s string, cnt int) []string {
 	top := make([]string, 0, cnt)
 
 	for i, v := range sl {
-		if i > cnt-1 {
+		if i >= cnt {
 			break
 		}
 		top = append(top, v.word)
@@ -73,7 +70,7 @@ func wordCleaning(s string) (string, error) {
 	}
 
 	// clearing a word of punctuation marks
-	cleaned := re.ReplaceAllString(strings.ToLower(s), "")
+	cleaned := strings.Trim(strings.ToLower(s), ",.!-?\"'`")
 
 	// single punctuation mark, len(punctuation_mark)==1!
 	if cleaned == "" && len(s) == 1 {
