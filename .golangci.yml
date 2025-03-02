@@ -39,10 +39,10 @@ linters:
     - dogsled
     - dupl
     - bodyclose
-    - copyloopvar
     - durationcheck
     - errorlint
     - exhaustive
+    - copyloopvar
     - funlen
     - gci
     - gocognit
