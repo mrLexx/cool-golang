@@ -49,14 +49,85 @@ func TestCache(t *testing.T) {
 		require.Nil(t, val)
 	})
 
-	t.Run("purge logic", func(t *testing.T) {
-		// Write me
-		_ = t
+	t.Run("purge logic, overflow and clean", func(t *testing.T) {
+		c := NewCache(5)
+		c.Set("a01", 100) // a01
+		c.Set("a02", 200) // a01, a02
+		c.Set("a03", 300) // a01, a02, a03
+		c.Set("a04", 400) // a01, a02, a03, a04
+		c.Set("a05", 500) // a01, a02, a03, a04, a05
+		c.Set("a06", 500) // a02, a03, a04, a05, a06
+
+		val, ok := c.Get("a01")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		c.Clear()
+
+		check := []Key{"a02", "a03", "a04", "a05", "a06"}
+		for _, k := range check {
+			val, ok = c.Get(k)
+			require.False(t, ok)
+			require.Nil(t, val)
+		}
+	})
+
+	t.Run("purge logic, move to front by Set", func(t *testing.T) {
+		c := NewCache(5)
+
+		c.Set("a01", 100) // a01
+		c.Set("a02", 200) // a01, a02
+		c.Set("a03", 300) // a01, a02, a03
+		c.Set("a04", 400) // a01, a02, a03, a04
+		c.Set("a05", 500) // a01, a02, a03, a04, a05
+		c.Set("a01", 100) // a02, a03, a04, a05, a01
+		c.Set("a02", 200) // a03, a04, a05, a01, a02
+		c.Set("a06", 600) // a04, a05, a01, a02, a06
+
+		val, ok := c.Get("a03")
+		require.False(t, ok)
+		require.Nil(t, val)
+	})
+
+	t.Run("purge logic, move to front by Get", func(t *testing.T) {
+		c := NewCache(5)
+
+		c.Clear()
+		c.Set("a01", 100) // a01
+		c.Set("a02", 200) // a01, a02
+		c.Set("a03", 300) // a01, a02, a03
+		c.Set("a04", 400) // a01, a02, a03, a04
+		c.Set("a05", 500) // a01, a02, a03, a04, a05
+		c.Get("a03")      // a01, a02, a04, a05, a03
+		c.Get("a04")      // a01, a02, a05, a03, a04
+		c.Get("a03")      // a01, a02, a05, a04, a03
+		c.Set("a06", 600) // a02, a05, a04, a03, a06
+		c.Set("a07", 700) // a05, a04, a03, a06, a07
+		c.Set("a08", 800) // a04, a03, a06, a07, a08
+		c.Set("a09", 900) // a03, a06, a07, a08, a09
+
+		check := []Key{"a01", "a02", "a04", "a05"}
+		for _, k := range check {
+			val, ok := c.Get(k)
+			require.False(t, ok)
+			require.Nil(t, val)
+		}
+
+		check = []Key{"a03", "a06", "a07", "a08", "a09"}
+		for _, k := range check {
+			_, ok := c.Get(k)
+			require.True(t, ok)
+		}
+
+		c.Set("a10", 1000) // overflow, remove back (a01)
+		val, ok := c.Get("a01")
+		require.False(t, ok)
+		require.Nil(t, val)
 	})
 }
 
 func TestCacheMultithreading(t *testing.T) {
-	t.Skip() // Remove me if task with asterisk completed.
+	_ = t
 
 	c := NewCache(10)
 	wg := &sync.WaitGroup{}

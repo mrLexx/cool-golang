@@ -1,22 +1,30 @@
 package hw04lrucache
 
+import (
+	"sync"
+)
+
 type Key string
 
 type Cache interface {
+	set(key Key, value interface{}) bool
+	get(key Key) (interface{}, bool)
+	clear()
 	Set(key Key, value interface{}) bool
 	Get(key Key) (interface{}, bool)
 	Clear()
 }
 
 type lruCache struct {
-	capacity int
+	sync.Mutex
 	queue    List
 	items    map[Key]*ListItem
+	capacity int
 }
 
 type lruCacheItem struct {
-	k Key
-	v interface{}
+	key   Key
+	value interface{}
 }
 
 func NewCache(capacity int) Cache {
@@ -27,35 +35,52 @@ func NewCache(capacity int) Cache {
 	}
 }
 
-func (c *lruCache) Set(key Key, value interface{}) bool {
+func (c *lruCache) set(key Key, value interface{}) bool {
 	_, ok := c.items[key]
 
-	if !ok && c.queue.Len() >= c.capacity {
-		last := c.queue.Back()
+	v := lruCacheItem{key: key, value: value}
+	q := c.queue.PushFront(v)
+	c.items[key] = q
 
-		delete(c.items, last.Value.(lruCacheItem).k)
+	if c.queue.Len() > c.capacity {
+		last := c.queue.Back()
+		delete(c.items, last.Value.(lruCacheItem).key)
 		c.queue.Remove(last)
 	}
-
-	v := lruCacheItem{k: key, v: value}
-	elem := c.queue.PushFront(v)
-	c.items[key] = elem
-
 	return ok
 }
 
-func (c *lruCache) Get(key Key) (interface{}, bool) {
-	elem, ok := c.items[key]
+func (c *lruCache) get(key Key) (interface{}, bool) {
+	item, ok := c.items[key]
 
 	if !ok {
 		return nil, false
 	}
-	c.queue.PushFront(elem)
 
-	return elem.Value.(lruCacheItem).v, true
+	c.queue.Remove(item)
+	c.queue.PushFront(item.Value)
+	return item.Value.(lruCacheItem).value, true
+}
+
+func (c *lruCache) clear() {
+	c.items = make(map[Key]*ListItem, c.capacity)
+	c.queue = NewList()
+}
+
+func (c *lruCache) Set(key Key, value interface{}) bool {
+	c.Lock()
+	defer c.Unlock()
+	return c.set(key, value)
+}
+
+func (c *lruCache) Get(key Key) (interface{}, bool) {
+	c.Lock()
+	defer c.Unlock()
+	return c.get(key)
 }
 
 func (c *lruCache) Clear() {
-	c.items = make(map[Key]*ListItem, c.capacity)
-	c.queue.Clear()
+	c.Lock()
+	defer c.Unlock()
+	c.clear()
 }
