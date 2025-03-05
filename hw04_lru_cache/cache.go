@@ -7,9 +7,6 @@ import (
 type Key string
 
 type Cache interface {
-	set(key Key, value interface{}) bool
-	get(key Key) (interface{}, bool)
-	clear()
 	Set(key Key, value interface{}) bool
 	Get(key Key) (interface{}, bool)
 	Clear()
@@ -35,7 +32,9 @@ func NewCache(capacity int) Cache {
 	}
 }
 
-func (c *lruCache) set(key Key, value interface{}) bool {
+func (c *lruCache) Set(key Key, value interface{}) bool {
+	c.Lock()
+	defer c.Unlock()
 	_, ok := c.items[key]
 
 	v := lruCacheItem{key: key, value: value}
@@ -50,7 +49,10 @@ func (c *lruCache) set(key Key, value interface{}) bool {
 	return ok
 }
 
-func (c *lruCache) get(key Key) (interface{}, bool) {
+func (c *lruCache) Get(key Key) (interface{}, bool) {
+	c.Lock()
+	defer c.Unlock()
+
 	item, ok := c.items[key]
 
 	if !ok {
@@ -62,25 +64,9 @@ func (c *lruCache) get(key Key) (interface{}, bool) {
 	return item.Value.(lruCacheItem).value, true
 }
 
-func (c *lruCache) clear() {
-	c.items = make(map[Key]*ListItem, c.capacity)
-	c.queue = NewList()
-}
-
-func (c *lruCache) Set(key Key, value interface{}) bool {
-	c.Lock()
-	defer c.Unlock()
-	return c.set(key, value)
-}
-
-func (c *lruCache) Get(key Key) (interface{}, bool) {
-	c.Lock()
-	defer c.Unlock()
-	return c.get(key)
-}
-
 func (c *lruCache) Clear() {
 	c.Lock()
 	defer c.Unlock()
-	c.clear()
+	c.items = make(map[Key]*ListItem, c.capacity)
+	c.queue = NewList()
 }
