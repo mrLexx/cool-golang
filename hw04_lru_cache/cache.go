@@ -19,6 +19,11 @@ type lruCache struct {
 	capacity int
 }
 
+type lruCacheItem struct {
+	key   Key
+	value interface{}
+}
+
 func NewCache(capacity int) Cache {
 	return &lruCache{
 		capacity: capacity,
@@ -36,20 +41,16 @@ func (c *lruCache) Set(key Key, value interface{}) bool {
 	if !ok && c.queue.Len() == c.capacity {
 		last := c.queue.Back()
 		c.queue.Remove(last)
-		for k, v := range c.items {
-			if v == last {
-				delete(c.items, k)
-				break
-			}
-		}
+		delete(c.items, last.Value.(lruCacheItem).key)
 	}
 
+	v := lruCacheItem{key: key, value: value}
 	switch {
 	case !ok:
-		item = c.queue.PushFront(value)
+		item = c.queue.PushFront(v)
 		c.items[key] = item
 	default:
-		item.Value = value
+		item.Value = v
 		c.queue.MoveToFront(item)
 	}
 
@@ -68,7 +69,7 @@ func (c *lruCache) Get(key Key) (interface{}, bool) {
 
 	c.queue.MoveToFront(item)
 
-	return item.Value, true
+	return item.Value.(lruCacheItem).value, true
 }
 
 func (c *lruCache) Clear() {
