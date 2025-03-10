@@ -52,11 +52,11 @@ func TestCache(t *testing.T) {
 	t.Run("purge logic, overflow and clean", func(t *testing.T) {
 		c := NewCache(5)
 		c.Set("a01", 100) // a01
-		c.Set("a02", 200) // a01, a02
-		c.Set("a03", 300) // a01, a02, a03
-		c.Set("a04", 400) // a01, a02, a03, a04
-		c.Set("a05", 500) // a01, a02, a03, a04, a05
-		c.Set("a06", 500) // a02, a03, a04, a05, a06
+		c.Set("a02", 200) // a02, a01
+		c.Set("a03", 300) // a03, a02, a01
+		c.Set("a04", 400) // a04, a03, a02, a01
+		c.Set("a05", 500) // a05, a04, a03, a02, a01
+		c.Set("a06", 500) // a06, a05, a04, a03, a02
 
 		val, ok := c.Get("a01")
 		require.False(t, ok)
@@ -76,13 +76,13 @@ func TestCache(t *testing.T) {
 		c := NewCache(5)
 
 		c.Set("a01", 100) // a01
-		c.Set("a02", 200) // a01, a02
-		c.Set("a03", 300) // a01, a02, a03
-		c.Set("a04", 400) // a01, a02, a03, a04
-		c.Set("a05", 500) // a01, a02, a03, a04, a05
-		c.Set("a01", 100) // a02, a03, a04, a05, a01
-		c.Set("a02", 200) // a03, a04, a05, a01, a02
-		c.Set("a06", 600) // a04, a05, a01, a02, a06
+		c.Set("a02", 200) // a02, a01
+		c.Set("a03", 300) // a03, a02, a01
+		c.Set("a04", 400) // a04, a03, a02, a01
+		c.Set("a05", 500) // a05, a04, a03, a02, a01
+		c.Set("a01", 100) // a01, a05, a04, a03, a02
+		c.Set("a02", 200) // a02, a01, a05, a04, a03
+		c.Set("a06", 600) // a06, a02, a01, a05, a04
 
 		val, ok := c.Get("a03")
 		require.False(t, ok)
@@ -94,17 +94,17 @@ func TestCache(t *testing.T) {
 
 		c.Clear()
 		c.Set("a01", 100) // a01
-		c.Set("a02", 200) // a01, a02
-		c.Set("a03", 300) // a01, a02, a03
-		c.Set("a04", 400) // a01, a02, a03, a04
-		c.Set("a05", 500) // a01, a02, a03, a04, a05
-		c.Get("a03")      // a01, a02, a04, a05, a03
-		c.Get("a04")      // a01, a02, a05, a03, a04
-		c.Get("a03")      // a01, a02, a05, a04, a03
-		c.Set("a06", 600) // a02, a05, a04, a03, a06
-		c.Set("a07", 700) // a05, a04, a03, a06, a07
-		c.Set("a08", 800) // a04, a03, a06, a07, a08
-		c.Set("a09", 900) // a03, a06, a07, a08, a09
+		c.Set("a02", 200) // a02, a01
+		c.Set("a03", 300) // a03, a02, a01
+		c.Set("a04", 400) // a04, a03, a02, a01
+		c.Set("a05", 500) // a05, a04, a03, a02, a01
+		c.Get("a03")      // a03, a05, a04, a02, a01
+		c.Get("a04")      // a04, a03, a05, a02, a01
+		c.Get("a03")      // a03, a04, a05, a02, a01
+		c.Set("a06", 600) // a06, a03, a04, a05, a02
+		c.Set("a07", 700) // a07, a06, a03, a04, a05
+		c.Set("a08", 800) // a08, a07, a06, a03, a04
+		c.Set("a09", 900) // a09, a08, a07, a06, a03
 
 		check := []Key{"a01", "a02", "a04", "a05"}
 		for _, k := range check {
@@ -119,7 +119,7 @@ func TestCache(t *testing.T) {
 			require.True(t, ok)
 		}
 
-		c.Set("a10", 1000) // overflow, remove back (a01)
+		c.Set("a10", 1000)
 		val, ok := c.Get("a01")
 		require.False(t, ok)
 		require.Nil(t, val)
