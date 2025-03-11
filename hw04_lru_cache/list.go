@@ -102,10 +102,10 @@ func (list *list) MoveToFront(i *ListItem) {
 	}
 
 	switch {
-	case i.Prev != nil && i.Next != nil:
+	case i.Next != nil:
 		i.Prev.Next, i.Next.Prev = i.Next, i.Prev
 
-	case i.Prev != nil:
+	default:
 		i.Prev.Next = nil
 		list.back = i.Prev
 	}
