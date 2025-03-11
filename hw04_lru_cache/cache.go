@@ -1,6 +1,7 @@
 package hw04lrucache
 
 import (
+	"errors"
 	"sync"
 )
 
@@ -25,6 +26,11 @@ type lruCacheItem struct {
 }
 
 func NewCache(capacity int) Cache {
+	if capacity < 0 {
+		err := errors.New("capacity must >= 0")
+		panic(err)
+	}
+
 	return &lruCache{
 		capacity: capacity,
 		queue:    NewList(),
@@ -35,6 +41,10 @@ func NewCache(capacity int) Cache {
 func (c *lruCache) Set(key Key, value interface{}) bool {
 	c.Lock()
 	defer c.Unlock()
+
+	if c.capacity == 0 {
+		return false
+	}
 
 	item, ok := c.items[key]
 

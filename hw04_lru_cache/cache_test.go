@@ -124,6 +124,34 @@ func TestCache(t *testing.T) {
 		require.False(t, ok)
 		require.Nil(t, val)
 	})
+
+	t.Run("capacity, less than zero", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+		}()
+
+		c := NewCache(-1)
+		c.Clear()
+		_, ok := c.Get("a01")
+		require.False(t, ok)
+
+		c.Set("a01", 100) // panic
+	})
+
+	t.Run("capacity, equals zero", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.Nil(t, r)
+		}()
+
+		c := NewCache(0)
+		c.Clear()
+		c.Set("a01", 100) // []
+		val, ok := c.Get("a01")
+		require.Nil(t, val)
+		require.False(t, ok)
+	})
 }
 
 func TestCacheMultithreading(t *testing.T) {
