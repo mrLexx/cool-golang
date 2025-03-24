@@ -23,6 +23,13 @@ func Run(tasks []Task, n, m int) error {
 	var wg sync.WaitGroup
 	jobsCh := make(chan Task)
 
+	switch {
+	case m == 0:
+		m = 1
+	case m == -1:
+		m = len(tasks) + 1
+	}
+
 	wg.Add(n)
 	for range n {
 		go func() {
@@ -31,10 +38,7 @@ func Run(tasks []Task, n, m int) error {
 		}()
 	}
 	for _, t := range tasks {
-		if m > 0 && int(atomic.LoadInt32(&errorsCount)) >= m {
-			break
-		}
-		if m == 0 && atomic.LoadInt32(&errorsCount) > 0 {
+		if int(atomic.LoadInt32(&errorsCount)) >= m {
 			break
 		}
 		jobsCh <- t
@@ -42,10 +46,7 @@ func Run(tasks []Task, n, m int) error {
 	close(jobsCh)
 	wg.Wait()
 
-	if m > 0 && int(atomic.LoadInt32(&errorsCount)) >= m {
-		return ErrErrorsLimitExceeded
-	}
-	if m == 0 && atomic.LoadInt32(&errorsCount) > 0 {
+	if int(errorsCount) >= m {
 		return ErrErrorsLimitExceeded
 	}
 	return nil
