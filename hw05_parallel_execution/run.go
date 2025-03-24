@@ -19,7 +19,6 @@ func worker(in <-chan Task, e *int32) {
 }
 
 func Run(tasks []Task, n, m int) error {
-	var err error
 	var errorsCount int32
 	var wg sync.WaitGroup
 	jobsCh := make(chan Task)
@@ -31,22 +30,23 @@ func Run(tasks []Task, n, m int) error {
 			worker(jobsCh, &errorsCount)
 		}()
 	}
-
 	for _, t := range tasks {
-		if m > 0 && int(atomic.LoadInt32(&errorsCount)) == m {
-			err = ErrErrorsLimitExceeded
+		if m > 0 && int(atomic.LoadInt32(&errorsCount)) >= m {
 			break
 		}
-
 		if m == 0 && atomic.LoadInt32(&errorsCount) > 0 {
-			err = ErrErrorsLimitExceeded
 			break
 		}
-
 		jobsCh <- t
 	}
 	close(jobsCh)
-
 	wg.Wait()
-	return err
+
+	if m > 0 && int(atomic.LoadInt32(&errorsCount)) >= m {
+		return ErrErrorsLimitExceeded
+	}
+	if m == 0 && atomic.LoadInt32(&errorsCount) > 0 {
+		return ErrErrorsLimitExceeded
+	}
+	return nil
 }
