@@ -75,18 +75,13 @@ func TestRun(t *testing.T) {
 		tasksCount := 50
 		tasks := make([]Task, 0, tasksCount)
 
-		var runTasksCount int32
 		var runTogetherTasksCount int32
-		var sumTime time.Duration
 
 		for i := 0; i < tasksCount; i++ {
 			taskSleep := time.Millisecond * time.Duration(rand.Intn(100))
-			sumTime += taskSleep
-
 			tasks = append(tasks, func() error {
 				atomic.AddInt32(&runTogetherTasksCount, 1)
 				time.Sleep(taskSleep)
-				atomic.AddInt32(&runTasksCount, 1)
 				atomic.AddInt32(&runTogetherTasksCount, -1)
 				return nil
 			})
