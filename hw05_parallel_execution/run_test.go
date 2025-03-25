@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -66,5 +67,198 @@ func TestRun(t *testing.T) {
 
 		require.Equal(t, runTasksCount, int32(tasksCount), "not all tasks were completed")
 		require.LessOrEqual(t, int64(elapsedTime), int64(sumTime/2), "tasks were run sequentially?")
+	})
+
+	t.Run("tasks without errors, eventually", func(t *testing.T) {
+		var wg sync.WaitGroup
+
+		tasksCount := 50
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTogetherTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			taskSleep := time.Millisecond * time.Duration(rand.Intn(100))
+			tasks = append(tasks, func() error {
+				atomic.AddInt32(&runTogetherTasksCount, 1)
+				time.Sleep(taskSleep)
+				atomic.AddInt32(&runTogetherTasksCount, -1)
+				return nil
+			})
+		}
+
+		workersCount := 5
+		maxErrorsCount := 1
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			Run(tasks, workersCount, maxErrorsCount)
+		}()
+
+		require.Eventually(t, func() bool {
+			return atomic.LoadInt32(&runTogetherTasksCount) == int32(workersCount)
+		}, time.Second, time.Millisecond)
+
+		wg.Wait()
+	})
+
+	t.Run("any errors are allowed", func(t *testing.T) {
+		tasksCount := 50
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			err := fmt.Errorf("error from task %d", i)
+			tasks = append(tasks, func() error {
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+				atomic.AddInt32(&runTasksCount, 1)
+				return err
+			})
+		}
+
+		workersCount := 10
+		maxErrorsCount := -1
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.NoError(t, err)
+		require.Equal(t, runTasksCount, int32(tasksCount), "not all tasks were completed")
+	})
+
+	t.Run("errors are not allowed", func(t *testing.T) {
+		tasksCount := 50
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			err := fmt.Errorf("error from task %d", i)
+			tasks = append(tasks, func() error {
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+				atomic.AddInt32(&runTasksCount, 1)
+				return err
+			})
+		}
+
+		workersCount := 10
+		maxErrorsCount := 0
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.Truef(t, errors.Is(err, ErrErrorsLimitExceeded), "actual err - %v", err)
+		require.LessOrEqual(t, runTasksCount, int32(workersCount+1), "extra tasks were started")
+	})
+}
+
+func TestRunTasksAndWorkers(t *testing.T) {
+	t.Log("tasks count = workers count")
+	t.Run("max errors > 0", func(t *testing.T) {
+		tasksCount := 10
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			err := fmt.Errorf("error from task %d", i)
+			tasks = append(tasks, func() error {
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+				atomic.AddInt32(&runTasksCount, 1)
+				return err
+			})
+		}
+		workersCount := 10
+		maxErrorsCount := 2
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.Truef(t, errors.Is(err, ErrErrorsLimitExceeded), "actual err - %v", err)
+		require.LessOrEqual(t, runTasksCount, int32(workersCount+maxErrorsCount), "extra tasks were started")
+	})
+
+	t.Run("max errors 0", func(t *testing.T) {
+		tasksCount := 10
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			err := fmt.Errorf("error from task %d", i)
+			tasks = append(tasks, func() error {
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+				atomic.AddInt32(&runTasksCount, 1)
+				return err
+			})
+		}
+		workersCount := 10
+		maxErrorsCount := 0
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.Truef(t, errors.Is(err, ErrErrorsLimitExceeded), "actual err - %v", err)
+		require.LessOrEqual(t, runTasksCount, int32(workersCount+maxErrorsCount), "extra tasks were started")
+	})
+
+	t.Run("max errors -1", func(t *testing.T) {
+		tasksCount := 10
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			err := fmt.Errorf("error from task %d", i)
+			tasks = append(tasks, func() error {
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+				atomic.AddInt32(&runTasksCount, 1)
+				return err
+			})
+		}
+		workersCount := 10
+		maxErrorsCount := -1
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.NoError(t, err)
+		require.Equal(t, runTasksCount, int32(tasksCount), "not all tasks were completed")
+	})
+
+	t.Run("max errors = workers count", func(t *testing.T) {
+		tasksCount := 10
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			err := fmt.Errorf("error from task %d", i)
+			tasks = append(tasks, func() error {
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+				atomic.AddInt32(&runTasksCount, 1)
+				return err
+			})
+		}
+		workersCount := 10
+		maxErrorsCount := 10
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.Truef(t, errors.Is(err, ErrErrorsLimitExceeded), "actual err - %v", err)
+		require.LessOrEqual(t, runTasksCount, int32(workersCount+maxErrorsCount), "extra tasks were started")
+	})
+
+	t.Run("max errors > workers count", func(t *testing.T) {
+		tasksCount := 10
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount int32
+
+		for i := 0; i < tasksCount; i++ {
+			err := fmt.Errorf("error from task %d", i)
+			tasks = append(tasks, func() error {
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+				atomic.AddInt32(&runTasksCount, 1)
+				return err
+			})
+		}
+		workersCount := 10
+		maxErrorsCount := 11
+		err := Run(tasks, workersCount, maxErrorsCount)
+
+		require.NoError(t, err)
+		require.Equal(t, runTasksCount, int32(tasksCount), "not all tasks were completed")
 	})
 }
