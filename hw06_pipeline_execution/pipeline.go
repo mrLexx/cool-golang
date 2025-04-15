@@ -1,14 +1,54 @@
 package hw06pipelineexecution
 
 type (
-	In  = <-chan interface{}
+	In  = <-chan any
 	Out = In
-	Bi  = chan interface{}
+	Bi  = chan any
 )
 
 type Stage func(in In) (out Out)
 
+func drain(stream In) {
+	//nolint:revive
+	for range stream {
+	}
+}
+
+func pipe(done In, stage Stage) Stage {
+	return func(in In) Out {
+		out := make(Bi)
+		stream := stage(in)
+
+		go func() {
+			defer func() {
+				close(out)
+			}()
+
+			for {
+				select {
+				case <-done:
+					go drain(stream)
+					return
+				case v, ok := <-stream:
+					if !ok {
+						return
+					}
+					select {
+					case out <- v:
+					case <-done:
+						go drain(stream)
+						return
+					}
+				}
+			}
+		}()
+		return out
+	}
+}
+
 func ExecutePipeline(in In, done In, stages ...Stage) Out {
-	// Place your code here.
-	return nil
+	for _, stage := range stages {
+		in = pipe(done, stage)(in)
+	}
+	return in
 }
