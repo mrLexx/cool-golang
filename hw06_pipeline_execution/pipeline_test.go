@@ -168,7 +168,7 @@ func TestOneStageBreak(t *testing.T) {
 	}
 
 	gBreak := func(_ string, _ func(v interface{}) interface{}) Stage {
-		return func(in In) Out {
+		return func(_ In) Out {
 			out := make(Bi)
 			wg.Add(1)
 			go func() {
