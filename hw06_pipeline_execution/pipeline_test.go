@@ -232,7 +232,6 @@ func TestOneStageBreak(t *testing.T) {
 }
 
 func TestEmptyStages(t *testing.T) {
-
 	stages := []Stage{}
 
 	t.Run("empty stages", func(t *testing.T) {
