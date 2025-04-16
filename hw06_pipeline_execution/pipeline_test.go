@@ -175,6 +175,7 @@ func TestOneStageBreak(t *testing.T) {
 				defer wg.Done()
 				defer close(out)
 			}()
+			time.Sleep(time.Microsecond * 100)
 			return out
 		}
 	}
