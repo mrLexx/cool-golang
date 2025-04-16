@@ -203,4 +203,52 @@ func TestOneStageBreak(t *testing.T) {
 		}
 		require.Equal(t, []string{}, result)
 	})
+
+	stages = []Stage{
+		g("Dummy", func(v interface{}) interface{} { return v }),
+		g("Multiplier (* 2)", func(v interface{}) interface{} { return v.(int) * 2 }),
+		g("Adder (+ 100)", func(v interface{}) interface{} { return v.(int) + 100 }),
+		gBreak("Stringifier", func(v interface{}) interface{} { return strconv.Itoa(v.(int)) }),
+	}
+
+	t.Run("last stage break", func(t *testing.T) {
+		in := make(Bi)
+		data := []int{1, 2, 3, 4, 5}
+
+		go func() {
+			for _, v := range data {
+				in <- v
+			}
+			close(in)
+		}()
+
+		result := make([]string, 0, 10)
+		for s := range ExecutePipeline(in, nil, stages...) {
+			result = append(result, s.(string))
+		}
+		require.Equal(t, []string{}, result)
+	})
+}
+
+func TestEmptyStages(t *testing.T) {
+
+	stages := []Stage{}
+
+	t.Run("empty stages", func(t *testing.T) {
+		in := make(Bi)
+		data := []int{}
+
+		go func() {
+			for _, v := range data {
+				in <- v
+			}
+			close(in)
+		}()
+
+		result := make([]int, 0, 10)
+		for s := range ExecutePipeline(in, nil, stages...) {
+			result = append(result, s.(int))
+		}
+		require.Equal(t, []int{}, result)
+	})
 }
