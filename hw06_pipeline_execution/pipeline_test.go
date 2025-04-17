@@ -187,7 +187,7 @@ func TestOneStageBreak(t *testing.T) {
 		g("Stringifier", func(v interface{}) interface{} { return strconv.Itoa(v.(int)) }),
 	}
 
-	t.Run("one stage break", func(t *testing.T) {
+	t.Run("one stage break case", func(t *testing.T) {
 		in := make(Bi)
 		data := []int{1, 2, 3, 4, 5}
 
@@ -212,7 +212,7 @@ func TestOneStageBreak(t *testing.T) {
 		gBreak("Stringifier", func(v interface{}) interface{} { return strconv.Itoa(v.(int)) }),
 	}
 
-	t.Run("last stage break", func(t *testing.T) {
+	t.Run("last stage break case", func(t *testing.T) {
 		in := make(Bi)
 		data := []int{1, 2, 3, 4, 5}
 
@@ -234,7 +234,7 @@ func TestOneStageBreak(t *testing.T) {
 func TestEmptyStages(t *testing.T) {
 	stages := []Stage{}
 
-	t.Run("empty stages", func(t *testing.T) {
+	t.Run("empty stages case", func(t *testing.T) {
 		in := make(Bi)
 		data := []int{}
 
@@ -250,5 +250,60 @@ func TestEmptyStages(t *testing.T) {
 			result = append(result, s.(int))
 		}
 		require.Equal(t, []int{}, result)
+	})
+}
+
+func TestDoneInput(t *testing.T) {
+	wg := sync.WaitGroup{}
+	// Stage generator
+	g := func(_ string, f func(v interface{}) interface{}) Stage {
+		return func(in In) Out {
+			out := make(Bi)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer close(out)
+				for v := range in {
+					time.Sleep(sleepPerStage)
+					out <- f(v)
+				}
+			}()
+			return out
+		}
+	}
+
+	stages := []Stage{
+		g("Dummy", func(v interface{}) interface{} { return v }),
+	}
+
+	t.Run("done immediately case", func(t *testing.T) {
+		in := make(Bi)
+		done := make(Bi)
+		data := []int{1, 2, 3, 4, 5}
+
+		// Abort immediately
+		go func() {
+			close(done)
+		}()
+
+		go func() {
+			for _, v := range data {
+				in <- v
+			}
+			close(in)
+		}()
+
+		time.Sleep(time.Microsecond * 100)
+
+		result := make([]int, 0, 10)
+		start := time.Now()
+		for s := range ExecutePipeline(in, done, stages...) {
+			result = append(result, s.(int))
+		}
+		elapsed := time.Since(start)
+		wg.Wait()
+
+		require.Len(t, result, 0)
+		require.Less(t, int64(elapsed), int64(sleepPerStage/2))
 	})
 }
