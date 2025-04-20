@@ -14,42 +14,40 @@ func drain(stream In) {
 	}
 }
 
-func pipe(done In) Stage {
-	return func(in In) Out {
-		out := make(Bi)
-		stream := in
+func flow(in In, done In) Out {
+	out := make(Bi)
+	stream := in
 
-		go func() {
-			defer func() {
-				close(out)
-			}()
+	go func() {
+		defer func() {
+			close(out)
+		}()
 
-			for {
+		for {
+			select {
+			case <-done:
+				go drain(stream)
+				return
+			case v, ok := <-stream:
+				if !ok {
+					return
+				}
 				select {
+				case out <- v:
 				case <-done:
 					go drain(stream)
 					return
-				case v, ok := <-stream:
-					if !ok {
-						return
-					}
-					select {
-					case out <- v:
-					case <-done:
-						go drain(stream)
-						return
-					}
 				}
 			}
-		}()
-		return out
-	}
+		}
+	}()
+	return out
 }
 
 func ExecutePipeline(in In, done In, stages ...Stage) Out {
-	in = pipe(done)(in)
+	in = flow(in, done)
 	for _, stage := range stages {
-		in = pipe(done)(stage(in))
+		in = flow(stage(in), done)
 	}
 	return in
 }
