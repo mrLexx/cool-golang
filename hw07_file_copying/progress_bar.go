@@ -65,7 +65,6 @@ func (pb *ProgressBar) render() {
 			pb.print(pb.processed)
 		}
 	}
-
 }
 
 func (pb *ProgressBar) print(v int64) {
