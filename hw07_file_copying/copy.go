@@ -131,7 +131,11 @@ func process(from *os.File, to io.Writer, offset, limit int64) error {
 		limit = i.Size()
 	}
 
-	pb := NewProgressBar(limit - offset)
+	if limit > i.Size()-offset {
+		limit = i.Size() - offset
+	}
+
+	pb := NewProgressBar(limit)
 	pb.Place()
 
 	from.Seek(offset, io.SeekStart)
