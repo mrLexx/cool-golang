@@ -9,6 +9,7 @@ import (
 )
 
 var (
+	ErrPathEmpty             = errors.New("file path empty")
 	ErrUnsupportedFile       = errors.New("unsupported file")
 	ErrPermissionDenied      = errors.New("access denied to file")
 	ErrNotExist              = errors.New("not exist")
@@ -73,6 +74,14 @@ func checkTo(file *os.File) error {
 }
 
 func Copy(fromPath, toPath string, offset, limit int64) error {
+	if fromPath == "" {
+		return fmt.Errorf("file from: %w", ErrPathEmpty)
+	}
+
+	if toPath == "" {
+		return fmt.Errorf("file to: %w", ErrPathEmpty)
+	}
+
 	if offset < 0 {
 		return fmt.Errorf("offset - %v: %w", offset, ErrOffsetNegative)
 	}

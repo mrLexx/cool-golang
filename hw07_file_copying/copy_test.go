@@ -10,6 +10,13 @@ import (
 )
 
 func TestErrorFrom(t *testing.T) {
+	t.Run("empty path", func(t *testing.T) {
+		to := filepath.Join(t.TempDir(), "out.txt")
+
+		err := Copy("", to, 0, 0)
+		require.ErrorIs(t, err, ErrPathEmpty)
+	})
+
 	t.Run("char device urandom", func(t *testing.T) {
 		from := "/dev/urandom"
 		to := filepath.Join(t.TempDir(), "out.txt")
@@ -58,6 +65,15 @@ func TestErrorFrom(t *testing.T) {
 }
 
 func TestErrorTo(t *testing.T) {
+	t.Run("empty path", func(t *testing.T) {
+		fromFile, err := os.CreateTemp("", "from.txt")
+		require.NoError(t, err)
+		from := fromFile.Name()
+
+		err = Copy(from, "", 0, 0)
+		require.ErrorIs(t, err, ErrPathEmpty)
+	})
+
 	t.Run("copy to dir", func(t *testing.T) {
 		fromFile, err := os.CreateTemp("", "from.txt")
 		require.NoError(t, err)
