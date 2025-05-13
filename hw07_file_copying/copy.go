@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 )
 
 var (
@@ -74,7 +75,7 @@ func checkTo(file *os.File) error {
 	return nil
 }
 
-func Copy(fromPath, toPath string, offset, limit int64) error {
+func checkPath(fromPath, toPath string) error {
 	if fromPath == "" {
 		return fmt.Errorf("file from: %w", ErrPathEmpty)
 	}
@@ -83,8 +84,24 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 		return fmt.Errorf("file to: %w", ErrPathEmpty)
 	}
 
-	if fromPath == toPath {
+	f, err := filepath.Abs(fromPath)
+	if err != nil {
+		return err
+	}
+	t, err := filepath.Abs(toPath)
+	if err != nil {
+		return err
+	}
+
+	if f == t {
 		return fmt.Errorf("%w", ErrSomeFile)
+	}
+	return nil
+}
+
+func Copy(fromPath, toPath string, offset, limit int64) error {
+	if err := checkPath(fromPath, toPath); err != nil {
+		return err
 	}
 
 	if offset < 0 {

@@ -11,9 +11,10 @@ import (
 
 func TestErrorFrom(t *testing.T) {
 	t.Run("from and to are some file", func(t *testing.T) {
-		to := filepath.Join(t.TempDir(), "out.txt")
+		from := "testdata/../testdata/../testdata/file.txt"
+		to := "testdata/file.txt"
 
-		err := Copy(to, to, 0, 0)
+		err := Copy(from, to, 0, 0)
 		require.ErrorIs(t, err, ErrSomeFile)
 	})
 
