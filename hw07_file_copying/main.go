@@ -19,7 +19,9 @@ func init() {
 
 func main() {
 	flag.Parse()
-	if err := Copy(from, to, offset, limit); err != nil {
+
+	err := Copy(from, to, offset, limit)
+	if err != nil {
 		fmt.Printf("Program execution error:\n  %v\n", err.Error())
 	}
 }
