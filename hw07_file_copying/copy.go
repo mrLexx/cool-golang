@@ -9,14 +9,15 @@ import (
 )
 
 var (
-	ErrPathEmpty             = errors.New("file path empty")
-	ErrUnsupportedFile       = errors.New("unsupported file")
-	ErrPermissionDenied      = errors.New("access denied to file")
-	ErrNotExist              = errors.New("not exist")
 	ErrIsDir                 = errors.New("is a directory")
+	ErrLimitNegative         = errors.New("limit negative")
+	ErrNotExist              = errors.New("not exist")
 	ErrOffsetExceedsFileSize = errors.New("offset exceeds file size")
 	ErrOffsetNegative        = errors.New("offset negative")
-	ErrLimitNegative         = errors.New("limit negative")
+	ErrPathEmpty             = errors.New("file path empty")
+	ErrPermissionDenied      = errors.New("access denied to file")
+	ErrSomeFile              = errors.New("from and to are the same file")
+	ErrUnsupportedFile       = errors.New("unsupported file")
 )
 
 func charDevice(file *os.File) (bool, error) {
@@ -80,6 +81,10 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 
 	if toPath == "" {
 		return fmt.Errorf("file to: %w", ErrPathEmpty)
+	}
+
+	if fromPath == toPath {
+		return fmt.Errorf("%w", ErrSomeFile)
 	}
 
 	if offset < 0 {
