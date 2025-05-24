@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"strings"
@@ -24,16 +25,21 @@ func RunCmd(cmd []string, env Environment) (returnCode int) {
 		}
 	}
 
-	var out strings.Builder
-	run.Stdout = &out
-	err := run.Run()
+	out, err := run.Output()
 
-	if exitError, ok := err.(*exec.ExitError); ok {
-		exitCode := exitError.ExitCode()
-		return exitCode
+	if err != nil {
+		switch err := err.(type) {
+		case *exec.ExitError:
+			return err.ExitCode()
+		case *fs.PathError:
+			fmt.Println(err)
+			return 127
+		default:
+			return 1
+		}
 	}
 
-	fmt.Printf("%v", out.String())
+	fmt.Printf("%s", out)
 
 	return
 }
