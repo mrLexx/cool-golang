@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 // RunCmd runs a command + arguments (cmd) with environment variables from env.
 func RunCmd(cmd []string, env Environment) (returnCode int) {
+	//nolint:gosec
 	run := exec.Command(cmd[0], cmd[1:]...)
 
 	for _, e := range os.Environ() {
@@ -26,20 +28,21 @@ func RunCmd(cmd []string, env Environment) (returnCode int) {
 	}
 
 	out, err := run.Output()
-
 	if err != nil {
-		switch err := err.(type) {
-		case *exec.ExitError:
-			return err.ExitCode()
-		case *fs.PathError:
-			fmt.Println(err)
-			return 127
+		var errExec *exec.ExitError
+		var errPath *fs.PathError
+
+		switch {
+		case errors.As(err, &errExec):
+			returnCode = errExec.ExitCode()
+		case errors.As(err, &errPath):
+			returnCode = 127
 		default:
-			return 1
+			returnCode = 1
 		}
 	}
 
 	fmt.Printf("%s", out)
 
-	return
+	return returnCode
 }

@@ -5,8 +5,10 @@ import (
 	"os"
 )
 
-var dir string
-var cmd []string
+var (
+	dir string
+	cmd []string
+)
 
 func main() {
 	if len(os.Args[1:]) < 2 {
@@ -26,5 +28,4 @@ func main() {
 
 	code := RunCmd(cmd, env)
 	os.Exit(code)
-
 }

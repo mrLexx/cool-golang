@@ -34,13 +34,13 @@ func TestErrorDir(t *testing.T) {
 		dir, err := os.Open(t.TempDir())
 		require.NoError(t, err)
 
+		//nolint:gofumpt
 		err = dir.Chmod(0000)
 		require.NoError(t, err)
 
 		_, err = ReadDir(dir.Name())
 		require.ErrorContains(t, err, "permission denied")
 	})
-
 }
 
 func TestErrorFile(t *testing.T) {
@@ -51,6 +51,7 @@ func TestErrorFile(t *testing.T) {
 		fromFile, err := os.CreateTemp(dir.Name(), "from.txt")
 		require.NoError(t, err)
 
+		//nolint:gofumpt
 		err = fromFile.Chmod(0000)
 		require.NoError(t, err)
 
@@ -76,6 +77,7 @@ func TestRead(t *testing.T) {
 	})
 
 	t.Run("skip dir", func(t *testing.T) {
+		//nolint:gofumpt
 		err := os.Mkdir("./testdata/env/skipdir", 0755)
 		require.NoError(t, err)
 
@@ -113,7 +115,6 @@ func TestRead(t *testing.T) {
 		err = os.Remove("./testdata/env/FILE=NAME")
 		require.NoError(t, err)
 	})
-
 }
 
 func TestReadDir(t *testing.T) {
@@ -126,5 +127,4 @@ func TestReadDir(t *testing.T) {
 
 		require.NoError(t, err)
 	})
-
 }

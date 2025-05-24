@@ -79,13 +79,10 @@ func ReadDir(dir string) (Environment, error) {
 		}
 
 		l, err := readFile(filepath.Join(dir, entry.Name()))
-
 		if err != nil {
 			return nil, fmt.Errorf("file error %v: %w", entry.Name(), err)
 		}
-
 		env[entry.Name()] = l
-
 	}
 
 	return env, nil
