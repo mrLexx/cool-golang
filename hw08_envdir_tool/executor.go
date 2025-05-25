@@ -12,22 +12,26 @@ import (
 // RunCmd runs a command + arguments (cmd) with environment variables from env.
 func RunCmd(cmd []string, env Environment) (returnCode int) {
 	//nolint:gosec
-	run := exec.Command(cmd[0], cmd[1:]...)
+	app := exec.Command(cmd[0], cmd[1:]...)
 
 	for _, e := range os.Environ() {
 		k := strings.Split(e, "=")[0]
 		if _, ok := env[k]; !ok {
-			run.Env = append(run.Env, e)
+			app.Env = append(app.Env, e)
 		}
 	}
 
 	for k, v := range env {
 		if !v.NeedRemove {
-			run.Env = append(run.Env, fmt.Sprintf("%v=%v", k, v.Value))
+			app.Env = append(app.Env, fmt.Sprintf("%v=%v", k, v.Value))
 		}
 	}
 
-	out, err := run.Output()
+	app.Stdout = os.Stdout
+	app.Stderr = os.Stderr
+	app.Stdin = os.Stdin
+
+	err := app.Start()
 	if err != nil {
 		var errExec *exec.ExitError
 		var errPath *fs.PathError
@@ -42,7 +46,7 @@ func RunCmd(cmd []string, env Environment) (returnCode int) {
 		}
 	}
 
-	fmt.Printf("%s", out)
+	app.Wait()
 
 	return returnCode
 }
