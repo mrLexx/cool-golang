@@ -33,20 +33,24 @@ func RunCmd(cmd []string, env Environment) (returnCode int) {
 
 	err := app.Start()
 	if err != nil {
-		var errExec *exec.ExitError
 		var errPath *fs.PathError
-
 		switch {
-		case errors.As(err, &errExec):
-			returnCode = errExec.ExitCode()
 		case errors.As(err, &errPath):
-			returnCode = 127
+			return 127
 		default:
-			returnCode = 1
+			return 1
 		}
 	}
 
-	app.Wait()
-
-	return returnCode
+	err = app.Wait()
+	if err != nil {
+		var errExec *exec.ExitError
+		switch {
+		case errors.As(err, &errExec):
+			return errExec.ExitCode()
+		default:
+			return 1
+		}
+	}
+	return
 }

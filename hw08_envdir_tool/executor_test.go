@@ -18,7 +18,7 @@ func TestRunCmd(t *testing.T) {
 	})
 
 	t.Run("error code", func(t *testing.T) {
-		c := RunCmd([]string{"grep", "foo"}, Environment{})
-		require.Equal(t, 1, c)
+		c := RunCmd([]string{"ls", "/not_exists_dir/"}, Environment{})
+		require.Equal(t, 2, c)
 	})
 }
