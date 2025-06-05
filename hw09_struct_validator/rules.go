@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-type Rule struct {
-	Type    []reflect.Kind
-	Prepare func(f reflect.StructField, r, p string) error
-}
-
 func isInt(v string) bool {
 	if _, err := strconv.Atoi(v); err != nil {
 		return false
@@ -21,26 +16,33 @@ func isInt(v string) bool {
 
 const ValidateTag = "validate"
 
-var rulesList = map[string]Rule{
+type Rule struct {
+	Type    []reflect.Kind
+	Prepare func(r, p string, tp reflect.Kind) error
+}
+
+type ListRules map[string]Rule
+
+var rulesStore = ListRules{
 	"len": {
 		Type: []reflect.Kind{reflect.String},
-		Prepare: func(f reflect.StructField, r, p string) error {
+		Prepare: func(r, p string, tp reflect.Kind) error {
 			if !isInt(p) {
 				return makeExecuteErrorf(ErrExecuteCompileRule,
-					"field `%v`: tag `len` must be int, but `%v:%v`", f.Name, r, p)
+					"rule `len` must be int, but `%v:%v`", r, p)
 			}
 			return nil
 		},
 	},
 	"regexp": {
 		Type: []reflect.Kind{reflect.String},
-		Prepare: func(f reflect.StructField, r, p string) error {
+		Prepare: func(r, p string, tp reflect.Kind) error {
 			_ = r
 			if _, ok := regexpList[p]; !ok {
 				rg, err := regexp.Compile(p)
 				if err != nil {
 					return makeExecuteErrorf(ErrExecuteCompileRule,
-						"field `%v` error compile regexp `%v`", f.Name, p)
+						"error compile regexp `%v`", p)
 				}
 				regexpList[p] = rg
 			}
@@ -49,12 +51,12 @@ var rulesList = map[string]Rule{
 	},
 	"in": {
 		Type: []reflect.Kind{reflect.String, reflect.Int},
-		Prepare: func(f reflect.StructField, r, p string) error {
-			if getReflectType(f) == reflect.Int {
+		Prepare: func(r, p string, tp reflect.Kind) error {
+			if tp == reflect.Int {
 				for _, v := range strings.Split(p, ",") {
 					if !isInt(v) {
 						return makeExecuteErrorf(ErrExecuteCompileRule,
-							"field `%v`: tag `in` must be int, but `%v:%v`", f.Name, r, p)
+							"rule `in` must be int, but `%v:%v`", r, p)
 					}
 				}
 			}
@@ -63,32 +65,32 @@ var rulesList = map[string]Rule{
 	},
 	"min": {
 		Type: []reflect.Kind{reflect.Int},
-		Prepare: func(f reflect.StructField, r, p string) error {
+		Prepare: func(r, p string, tp reflect.Kind) error {
 			if !isInt(p) {
 				return makeExecuteErrorf(ErrExecuteCompileRule,
-					"field `%v`: tag `min` must be int, but `%v:%v`", f.Name, r, p)
+					"rule `min` must be int, but `%v:%v`", r, p)
 			}
 			return nil
 		},
 	},
 	"max": {
 		Type: []reflect.Kind{reflect.Int},
-		Prepare: func(f reflect.StructField, r, p string) error {
+		Prepare: func(r, p string, tp reflect.Kind) error {
 			if !isInt(p) {
 				return makeExecuteErrorf(ErrExecuteCompileRule,
-					"field `%v`: tag `max` must be int, but `%v:%v`", f.Name, r, p)
+					"rule `max` must be int, but `%v:%v`", r, p)
 			}
 			return nil
 		},
 	},
 	"out": {
 		Type: []reflect.Kind{reflect.String, reflect.Int},
-		Prepare: func(f reflect.StructField, r, p string) error {
-			if getReflectType(f) == reflect.Int {
+		Prepare: func(r, p string, tp reflect.Kind) error {
+			if tp == reflect.Int {
 				for _, v := range strings.Split(p, ",") {
 					if !isInt(v) {
 						return makeExecuteErrorf(ErrExecuteCompileRule,
-							"field `%v`: tag `out` must be int, but `%v:%v`", f.Name, r, p)
+							"rule `out` must be int, but `%v:%v`", r, p)
 					}
 				}
 			}

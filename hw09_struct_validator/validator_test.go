@@ -203,9 +203,9 @@ func TestExecute(t *testing.T) {
 	}
 
 	type User struct {
-		Version string   `validate:"len:sd"`
-		Role    UserRole `validate:"nested"`
-		Email   string   `validate:"regexp:^\\w+@\\w+\\.\\w+$"`
+		Version string   `validate:"len:12"`
+		Role    UserRole `cvalidate:"nested"`
+		Email   string   `validate:"len:45|regexp:^\\w+@\\w+\\.\\w+$"`
 	}
 
 	tests := []struct {
@@ -224,8 +224,9 @@ func TestExecute(t *testing.T) {
 			test, _ := tt.in, tt.expectedErr
 			// t.Parallel()
 
-			err := Validate(test)
-			t.Log(err)
+			if err := Validate(test); err != nil {
+				t.Log(err)
+			}
 		})
 	}
 }

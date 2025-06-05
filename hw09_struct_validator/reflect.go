@@ -2,7 +2,7 @@ package hw09structvalidator
 
 import "reflect"
 
-func getReflectType(f reflect.StructField) reflect.Kind {
+func getFieldType(f reflect.StructField) reflect.Kind {
 	if f.Type.Kind() == reflect.Slice {
 		return f.Type.Elem().Kind()
 	}
