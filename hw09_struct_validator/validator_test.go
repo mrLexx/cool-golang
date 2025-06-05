@@ -191,21 +191,27 @@ func TestErrorExecute(t *testing.T) {
 
 			// второй вариант: работаем напрямую с ошибкой через Unwrap
 			require.ErrorIs(t, err, expectedErr)
-			t.Log(err)
+			// t.Log(err)
 		})
 	}
 }
 
 func TestExecute(t *testing.T) {
-	type UserRole struct {
-		Name string `validate:"len:12"`
+	type UserRoleNestedLevel00 struct {
+		Name int    `validate:"len:sd"`
 		Desc string `validate:"min:12"`
 	}
 
+	type UserRoleNestedLevel01 struct {
+		Name string                `validate:"len:12"`
+		Desc string                `validate:"len:12"`
+		Role UserRoleNestedLevel00 `validate:"nested"`
+	}
+
 	type User struct {
-		Version string   `validate:"len:12"`
-		Role    UserRole `cvalidate:"nested"`
-		Email   string   `validate:"len:45|regexp:^\\w+@\\w+\\.\\w+$"`
+		Role    UserRoleNestedLevel01 `validate:"nested"`
+		Version string                `validate:"len:12"`
+		Email   string                `validate:"len:45|regexp:^\\w+@\\w+\\.\\w+$"`
 	}
 
 	tests := []struct {

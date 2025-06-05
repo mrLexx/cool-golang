@@ -1,6 +1,7 @@
 package hw09structvalidator
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -17,8 +18,8 @@ func isInt(v string) bool {
 const ValidateTag = "validate"
 
 type Rule struct {
-	Type    []reflect.Kind
-	Prepare func(r, p string, tp reflect.Kind) error
+	Type     []reflect.Kind
+	Validate func(r, p string, tp reflect.Kind) error
 }
 
 type ListRules map[string]Rule
@@ -26,7 +27,8 @@ type ListRules map[string]Rule
 var rulesStore = ListRules{
 	"len": {
 		Type: []reflect.Kind{reflect.String},
-		Prepare: func(r, p string, tp reflect.Kind) error {
+		Validate: func(r, p string, tp reflect.Kind) error {
+			_ = tp
 			if !isInt(p) {
 				return makeExecuteErrorf(ErrExecuteCompileRule,
 					"rule `len` must be int, but `%v:%v`", r, p)
@@ -36,13 +38,13 @@ var rulesStore = ListRules{
 	},
 	"regexp": {
 		Type: []reflect.Kind{reflect.String},
-		Prepare: func(r, p string, tp reflect.Kind) error {
-			_ = r
+		Validate: func(r, p string, tp reflect.Kind) error {
+			_ = tp
 			if _, ok := regexpList[p]; !ok {
 				rg, err := regexp.Compile(p)
 				if err != nil {
 					return makeExecuteErrorf(ErrExecuteCompileRule,
-						"error compile regexp `%v`", p)
+						"error compile regexp `%v:%v`", r, p)
 				}
 				regexpList[p] = rg
 			}
@@ -51,7 +53,7 @@ var rulesStore = ListRules{
 	},
 	"in": {
 		Type: []reflect.Kind{reflect.String, reflect.Int},
-		Prepare: func(r, p string, tp reflect.Kind) error {
+		Validate: func(r, p string, tp reflect.Kind) error {
 			if tp == reflect.Int {
 				for _, v := range strings.Split(p, ",") {
 					if !isInt(v) {
@@ -65,7 +67,8 @@ var rulesStore = ListRules{
 	},
 	"min": {
 		Type: []reflect.Kind{reflect.Int},
-		Prepare: func(r, p string, tp reflect.Kind) error {
+		Validate: func(r, p string, tp reflect.Kind) error {
+			_ = tp
 			if !isInt(p) {
 				return makeExecuteErrorf(ErrExecuteCompileRule,
 					"rule `min` must be int, but `%v:%v`", r, p)
@@ -75,7 +78,8 @@ var rulesStore = ListRules{
 	},
 	"max": {
 		Type: []reflect.Kind{reflect.Int},
-		Prepare: func(r, p string, tp reflect.Kind) error {
+		Validate: func(r, p string, tp reflect.Kind) error {
+			_ = tp
 			if !isInt(p) {
 				return makeExecuteErrorf(ErrExecuteCompileRule,
 					"rule `max` must be int, but `%v:%v`", r, p)
@@ -85,7 +89,7 @@ var rulesStore = ListRules{
 	},
 	"out": {
 		Type: []reflect.Kind{reflect.String, reflect.Int},
-		Prepare: func(r, p string, tp reflect.Kind) error {
+		Validate: func(r, p string, tp reflect.Kind) error {
 			if tp == reflect.Int {
 				for _, v := range strings.Split(p, ",") {
 					if !isInt(v) {
@@ -99,4 +103,19 @@ var rulesStore = ListRules{
 	},
 }
 
-var regexpList = make(map[string]*regexp.Regexp, 0)
+func extractRule(tag string) (r, p string, err error) {
+	tmp := strings.Split(tag, ":")
+
+	if len(tmp) != 2 || tmp[1] == "" {
+		fmt.Println(tmp[0])
+		return "", "", makeExecuteErrorf(ErrExecuteIncompleteRule, "has an incomplete rule `%v`", tag)
+	}
+
+	r, p = tmp[0], tmp[1]
+
+	if _, ok := rulesStore[r]; !ok {
+		return "", "", makeExecuteErrorf(ErrExecuteUndefinedRule, "has an undefined rule `%v`", r)
+	}
+
+	return
+}
