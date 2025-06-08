@@ -1,74 +1,138 @@
 package hw09structvalidator
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
-	"slices"
-	"strings"
 )
 
-var regexpList = make(map[string]*regexp.Regexp, 0)
+const ValidateTag = "validate"
+
+var rulesStore = ListRules{
+	"len": {
+		Type:         []reflect.Kind{reflect.String},
+		ValidateData: ValidateLen,
+	},
+	"regexp": {
+		Type:         []reflect.Kind{reflect.String},
+		ValidateData: ValidateRegexp,
+	},
+	"in": {
+		Type:         []reflect.Kind{reflect.String, reflect.Int},
+		ValidateData: ValidateIn,
+	},
+	"out": {
+		Type:         []reflect.Kind{reflect.String, reflect.Int},
+		ValidateData: ValidateOut,
+	},
+	"min": {
+		Type:         []reflect.Kind{reflect.Int},
+		ValidateData: ValidateMin,
+	},
+	"max": {
+		Type:         []reflect.Kind{reflect.Int},
+		ValidateData: ValidateMax,
+	},
+}
+
+var validErrs = make(ValidationErrors, 0)
 
 func Validate(v any) error {
-	if reflect.TypeOf(v).Kind() != reflect.Struct {
-		return makeExecuteErrorf(ErrExecuteWrongInput, "expected a struct, but received %T", v)
-	}
+	val := reflect.ValueOf(v)
+	typ := val.Type()
+	typKind := typ.Kind()
 
-	if err := validateStruct(reflect.ValueOf(v).Type()); err != nil {
-		return err
+	switch {
+	case typKind != reflect.Struct && typKind != reflect.Slice:
+		return NewExecuteError(ErrExecuteWrongInput, "expected struct or slice of structs, got %T", v)
+	case typKind == reflect.Slice:
+		elemKind := typ.Elem().Kind()
+		if elemKind != reflect.Struct && !(elemKind == reflect.Pointer && typ.Elem().Elem().Kind() == reflect.Struct) {
+			return NewExecuteError(ErrExecuteWrongInput, "expected slice of structs or *structs, got %T", v)
+		}
+		if err := validateObj(val); err != nil {
+			return err
+		}
+
+	default:
+		if err := validateObj(val); err != nil {
+			return err
+		}
+	}
+	fmt.Println("len valid Errors: ", len(validErrs))
+	for _, v := range validErrs {
+		fmt.Println(v.Error())
+
+	}
+	return nil
+}
+
+func validateObj(val reflect.Value) error {
+
+	if val.Kind() == reflect.Slice {
+		for i := range val.Len() {
+			elem := val.Index(i)
+			if elem.Kind() == reflect.Pointer {
+				if elem.IsNil() {
+					continue
+				}
+				elem = elem.Elem()
+			}
+			err := validateItem(elem)
+			var validErr *ValidationError
+			switch {
+			case errors.As(err, &validErr):
+				validErrs = append(validErrs, *validErr)
+			default:
+				return err
+			}
+
+		}
+	} else {
+		err := validateItem(val)
+		var validErr *ValidationError
+		switch {
+		case errors.As(err, &validErr):
+			validErrs = append(validErrs, *validErr)
+		default:
+			return err
+		}
 	}
 
 	return nil
 }
 
-func validateStruct(t reflect.Type) error {
-	for i := range t.NumField() {
-		f := t.Field(i)
+func validateItem(v reflect.Value) error {
+
+	vt := v.Type()
+
+	for i := range vt.NumField() {
+		f := vt.Field(i)
+
 		if tag, ok := f.Tag.Lookup(ValidateTag); ok {
-			if err := validateTag(f, tag); err != nil {
-				return fmt.Errorf("type `%v`: %w", t.Name(), err)
+			if tag == "nested" {
+				vn := v.Field(i)
+				if err := separateValidateError(validateObj(vn)); err != nil {
+					return err
+				}
+			} else {
+				for _, t := range splitTag(tag) {
+					rs, err := extractRule(t)
+					if err != nil {
+						return err
+					}
+					itm, ok := rulesStore[rs.Name]
+					if !ok {
+						return NewExecuteError(ErrExecuteUndefinedRule, "has an undefined rule `%v`", rs.Name)
+					}
+
+					if err := separateValidateError(itm.ValidateData(rs.Payload, v.Field(i).Interface())); err != nil {
+						return err
+					}
+				}
 			}
 		}
 	}
-	return nil
-}
-
-func validateTag(sf reflect.StructField, tag string) error {
-	if tag == "nested" {
-		return validateStruct(sf.Type)
-	}
-
-	fieldType := getFieldType(sf)
-
-	for _, v := range strings.Split(tag, "|") {
-		r, p, err := extractRule(v)
-		if err != nil {
-			return fmt.Errorf("field `%v`: %w", sf.Name, err)
-		}
-
-		if err := validateMappingFieldRule(fieldType, rulesStore[r].Type); err != nil {
-			return fmt.Errorf("field `%v` (%v): rule `%v`: %w", sf.Name, fieldType, r, err)
-		}
-
-		if err := validateRule(r, p, fieldType); err != nil {
-			return fmt.Errorf("field `%v`: %w", sf.Name, err)
-		}
-	}
 
 	return nil
-}
-
-func validateMappingFieldRule(tp reflect.Kind, expectedTp []reflect.Kind) error {
-	if !slices.Contains(expectedTp, tp) {
-		return makeExecuteErrorf(ErrExecuteWrongRuleType, "this rule only for (%v)", expectedTp)
-	}
-	return nil
-}
-
-func validateRule(r, p string, fieldType reflect.Kind) error {
-	if _, ok := rulesStore[r]; !ok {
-		return makeExecuteErrorf(ErrExecuteUndefinedRule, "has an undefined rule `%v`", r)
-	}
-	return rulesStore[r].Validate(r, p, fieldType)
 }

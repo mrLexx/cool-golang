@@ -21,17 +21,24 @@ type ExecuteError struct {
 func (r *ExecuteError) Error() string {
 	return fmt.Sprintf("%v: %v", r.Msg, r.Err)
 }
-
 func (r *ExecuteError) Unwrap() error {
 	return r.Err
 }
-
-func makeExecuteErrorf(err error, format string, a ...any) error {
+func NewExecuteError(err error, format string, a ...any) error {
 	return &ExecuteError{
 		Msg: fmt.Sprintf(format, a...),
 		Err: err,
 	}
 }
+
+var (
+	ErrValidationLen    = errors.New("error length string")
+	ErrValidationIn     = errors.New("error In")
+	ErrValidationOut    = errors.New("error Out")
+	ErrValidationMin    = errors.New("error Min")
+	ErrValidationMax    = errors.New("error Max")
+	ErrValidationRegexp = errors.New("error Regexp")
+)
 
 type ValidationError struct {
 	Field string
@@ -39,11 +46,46 @@ type ValidationError struct {
 }
 
 func (r *ValidationError) Error() string {
-	return ""
+	return fmt.Sprintf("%v: %v", r.Field, r.Err)
+}
+func (r *ValidationError) Unwrap() error {
+	return r.Err
+}
+func NewValidationError(err error, f string) error {
+	return &ValidationError{
+		Field: f,
+		Err:   err,
+	}
 }
 
 type ValidationErrors []ValidationError
 
 func (v ValidationErrors) Error() string {
-	return "many many validate errors occurred"
+	return "all errorsss"
+}
+
+func separateValidateError(err error) error {
+	var validErr *ValidationError
+	switch {
+	case errors.As(err, &validErr):
+		validErrs = append(validErrs, *validErr)
+	default:
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func separateExecuteError(err error) error {
+	var execErr *ExecuteError
+	switch {
+	case errors.As(err, &execErr):
+		return err
+	default:
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

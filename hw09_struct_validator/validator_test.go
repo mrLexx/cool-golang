@@ -1,7 +1,6 @@
 package hw09structvalidator
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -13,14 +12,18 @@ type UserRole string
 
 // Test the function on different structures and other types.
 type (
+	Meta struct {
+		Info  string `validate:"len:11"`
+		Range int    `validate:"min:10|max:50"`
+	}
 	User struct {
-		ID     string          `json:"id" validate:"len:36"`
-		Name   string          `json:"name"`
-		Age    int             `validate:"min:18|max:50"`
-		Email  string          `validate:"regexp:^\\w+@\\w+\\.\\w+$"`
-		Role   UserRole        `validate:"in:admin,stuff"`
-		Phones []string        `validate:"len:11"`
-		meta   json.RawMessage //nolint:unused
+		ID     string   `json:"id" validate:"len:36|regexp:^\\w+@\\w+\\.\\w+$"`
+		Phones []string `validate:"len:11"`
+		Name   string   `json:"name"`
+		Age    int      `validate:"min:18|max:50"`
+		Email  string   `validate:"regexp:^\\w+@\\w+\\.\\w+$"`
+		Role   UserRole `validate:"in:admin,stuff"`
+		Meta   Meta     `validate:"nested"`
 	}
 
 	App struct {
@@ -37,7 +40,70 @@ type (
 		Code int    `validate:"in:200,404,500"`
 		Body string `json:"omitempty"`
 	}
+
+	MyNested struct {
+		Field []string `json:"id" validate:"len:36"`
+	}
+
+	My struct {
+		// ID     string   `json:"id" validate:"len:36|regexp:^\\w+@\\w+\\.\\w+$"`
+		ID     string     `json:"id" validate:"len:1"`
+		Phones []string   `validate:"len:1"`
+		Nested []MyNested `validate:"nested"`
+	}
 )
+
+func TestExecute(t *testing.T) {
+	tests := []struct {
+		in          interface{}
+		expectedErr error
+	}{
+		{
+			[]My{
+				{
+					ID: "dd👍",
+					Phones: []string{
+						"12345678901👍",
+						"phont2",
+					},
+
+					Nested: []MyNested{
+						{
+							Field: []string{"phont1👍", "phont2"},
+						},
+						{
+							Field: []string{"level1👍", "level2"},
+						},
+					},
+				},
+			}, nil,
+		},
+		// {
+		// 	User{
+		// 		Phones: []string{"phont1👍", "phont2"},
+		// 		ID:     "dd👍",
+		// 		Name:   "name",
+		// 		Meta: Meta{
+		// 			Info:  "information about what???",
+		// 			Range: 65,
+		// 		},
+		// 	},
+		// 	nil,
+		// },
+	}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			_ = t
+			test, _ := tt.in, tt.expectedErr
+			// t.Parallel()
+
+			if err := Validate(test); err != nil {
+				t.Log(err)
+			}
+		})
+	}
+}
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
@@ -45,7 +111,10 @@ func TestValidate(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			User{},
+			User{
+				ID:   "dd",
+				Name: "name",
+			},
 			nil,
 		},
 	}
@@ -57,7 +126,6 @@ func TestValidate(t *testing.T) {
 
 			err := Validate(test)
 			fmt.Println(err)
-			fmt.Println(e)
 
 			require.Equal(t, err, e)
 		})
@@ -65,6 +133,23 @@ func TestValidate(t *testing.T) {
 }
 
 func TestErrorExecute(t *testing.T) {
+	type UserRoleNestedLevel00 struct {
+		Name int    `validate:"len:12"`
+		Desc string `validate:"min:12"`
+	}
+
+	type UserRoleNestedLevel01 struct {
+		Name string                `validate:"len:12"`
+		Desc string                `validate:"len:12"`
+		Role UserRoleNestedLevel00 `validate:"nested"`
+	}
+
+	type User struct {
+		Role    UserRoleNestedLevel01 `validate:"nested"`
+		Version string                `validate:"len:12"`
+		Email   string                `validate:"len:45|regexp:^\\w+@\\w+\\.\\w+$"`
+	}
+
 	tests := []struct {
 		in          interface{}
 		expectedErr error
@@ -173,6 +258,10 @@ func TestErrorExecute(t *testing.T) {
 			}{},
 			ErrExecuteCompileRule,
 		},
+		{
+			User{},
+			ErrExecuteWrongRuleType,
+		},
 	}
 
 	for i, tt := range tests {
@@ -191,48 +280,7 @@ func TestErrorExecute(t *testing.T) {
 
 			// второй вариант: работаем напрямую с ошибкой через Unwrap
 			require.ErrorIs(t, err, expectedErr)
-			// t.Log(err)
-		})
-	}
-}
-
-func TestExecute(t *testing.T) {
-	type UserRoleNestedLevel00 struct {
-		Name int    `validate:"len:sd"`
-		Desc string `validate:"min:12"`
-	}
-
-	type UserRoleNestedLevel01 struct {
-		Name string                `validate:"len:12"`
-		Desc string                `validate:"len:12"`
-		Role UserRoleNestedLevel00 `validate:"nested"`
-	}
-
-	type User struct {
-		Role    UserRoleNestedLevel01 `validate:"nested"`
-		Version string                `validate:"len:12"`
-		Email   string                `validate:"len:45|regexp:^\\w+@\\w+\\.\\w+$"`
-	}
-
-	tests := []struct {
-		in          interface{}
-		expectedErr error
-	}{
-		{
-			User{},
-			ErrExecuteUndefinedRule,
-		},
-	}
-
-	for i, tt := range tests {
-		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			_ = t
-			test, _ := tt.in, tt.expectedErr
-			// t.Parallel()
-
-			if err := Validate(test); err != nil {
-				t.Log(err)
-			}
+			t.Log(err)
 		})
 	}
 }
