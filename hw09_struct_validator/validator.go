@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 const ValidateTag = "validate"
@@ -62,13 +63,14 @@ func Validate(v any) error {
 	fmt.Println("len valid Errors: ", len(validErrs))
 	for _, v := range validErrs {
 		fmt.Println(v.Error())
-
+	}
+	if len(validErrs) > 0 {
+		return validErrs
 	}
 	return nil
 }
 
 func validateObj(val reflect.Value) error {
-
 	if val.Kind() == reflect.Slice {
 		for i := range val.Len() {
 			elem := val.Index(i)
@@ -86,7 +88,6 @@ func validateObj(val reflect.Value) error {
 			default:
 				return err
 			}
-
 		}
 	} else {
 		err := validateItem(val)
@@ -103,16 +104,16 @@ func validateObj(val reflect.Value) error {
 }
 
 func validateItem(v reflect.Value) error {
-
 	vt := v.Type()
-
 	for i := range vt.NumField() {
 		f := vt.Field(i)
 
-		if tag, ok := f.Tag.Lookup(ValidateTag); ok {
+		tag, ok := f.Tag.Lookup(ValidateTag)
+
+		if ok {
 			if tag == "nested" {
 				vn := v.Field(i)
-				if err := separateValidateError(validateObj(vn)); err != nil {
+				if err := SeparateValidateError(validateObj(vn)); err != nil {
 					return err
 				}
 			} else {
@@ -126,8 +127,17 @@ func validateItem(v reflect.Value) error {
 						return NewExecuteError(ErrExecuteUndefinedRule, "has an undefined rule `%v`", rs.Name)
 					}
 
-					if err := separateValidateError(itm.ValidateData(rs.Payload, v.Field(i).Interface())); err != nil {
+					err = itm.ValidateData(rs.Payload, v.Field(i).Interface())
+
+					var execErr *ExecuteError
+					if errors.As(err, &execErr) {
 						return err
+					}
+					if err != nil {
+						validErrs = append(validErrs, ValidationError{
+							Field: f.Name,
+							Err:   err,
+						})
 					}
 				}
 			}
@@ -135,4 +145,17 @@ func validateItem(v reflect.Value) error {
 	}
 
 	return nil
+}
+
+func extractRule(tag string) (RuleSet, error) {
+	tmp := strings.Split(tag, ":")
+	if len(tmp) != 2 || tmp[1] == "" {
+		return RuleSet{}, NewExecuteError(ErrExecuteIncompleteRule, "has an incomplete rule `%v`", tag)
+	}
+	r, p := tmp[0], tmp[1]
+	return RuleSet{Name: r, Payload: p}, nil
+}
+
+func splitTag(tag string) []string {
+	return strings.Split(tag, "|")
 }

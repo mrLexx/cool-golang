@@ -3,6 +3,7 @@ package hw09structvalidator
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var (
@@ -21,9 +22,11 @@ type ExecuteError struct {
 func (r *ExecuteError) Error() string {
 	return fmt.Sprintf("%v: %v", r.Msg, r.Err)
 }
+
 func (r *ExecuteError) Unwrap() error {
 	return r.Err
 }
+
 func NewExecuteError(err error, format string, a ...any) error {
 	return &ExecuteError{
 		Msg: fmt.Sprintf(format, a...),
@@ -48,9 +51,11 @@ type ValidationError struct {
 func (r *ValidationError) Error() string {
 	return fmt.Sprintf("%v: %v", r.Field, r.Err)
 }
+
 func (r *ValidationError) Unwrap() error {
 	return r.Err
 }
+
 func NewValidationError(err error, f string) error {
 	return &ValidationError{
 		Field: f,
@@ -58,13 +63,7 @@ func NewValidationError(err error, f string) error {
 	}
 }
 
-type ValidationErrors []ValidationError
-
-func (v ValidationErrors) Error() string {
-	return "all errorsss"
-}
-
-func separateValidateError(err error) error {
+func SeparateValidateError(err error) error {
 	var validErr *ValidationError
 	switch {
 	case errors.As(err, &validErr):
@@ -77,15 +76,19 @@ func separateValidateError(err error) error {
 	return nil
 }
 
-func separateExecuteError(err error) error {
-	var execErr *ExecuteError
-	switch {
-	case errors.As(err, &execErr):
-		return err
-	default:
-		if err != nil {
-			return err
+type ValidationErrors []ValidationError
+
+func (v ValidationErrors) Error() string {
+	if len(v) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	for i, err := range v {
+		sb.WriteString(err.Error())
+		if i < len(v)-1 {
+			sb.WriteString("; ")
 		}
 	}
-	return nil
+	return sb.String()
 }

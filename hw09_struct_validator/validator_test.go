@@ -42,13 +42,13 @@ type (
 	}
 
 	MyNested struct {
-		Field []string `json:"id" validate:"len:36"`
+		OtherF []string `json:"id" validate:"len:5"`
 	}
 
 	My struct {
 		// ID     string   `json:"id" validate:"len:36|regexp:^\\w+@\\w+\\.\\w+$"`
 		ID     string     `json:"id" validate:"len:1"`
-		Phones []string   `validate:"len:1"`
+		Phones []string   `validate:"len:15"`
 		Nested []MyNested `validate:"nested"`
 	}
 )
@@ -59,24 +59,22 @@ func TestExecute(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			[]My{
-				{
-					ID: "dd👍",
-					Phones: []string{
-						"12345678901👍",
-						"phont2",
-					},
+			My{
+				ID: "dd👍",
+				Phones: []string{
+					"12345678901👍",
+					"phont2",
+				},
 
-					Nested: []MyNested{
-						{
-							Field: []string{"phont1👍", "phont2"},
-						},
-						{
-							Field: []string{"level1👍", "level2"},
-						},
+				Nested: []MyNested{
+					{
+						OtherF: []string{"phont1👍", "phont2"},
+					},
+					{
+						OtherF: []string{"level1👍", "level2"},
 					},
 				},
-			}, nil,
+			}, ErrValidationLen,
 		},
 		// {
 		// 	User{
@@ -95,12 +93,23 @@ func TestExecute(t *testing.T) {
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			_ = t
-			test, _ := tt.in, tt.expectedErr
+			test, expectedErr := tt.in, tt.expectedErr
+			_ = expectedErr
 			// t.Parallel()
 
-			if err := Validate(test); err != nil {
-				t.Log(err)
+			err := Validate(test)
+
+			var validErr *ValidationErrors
+			if !errors.As(err, &validErr) {
+				t.Fatalf("expected ValidationError, got %v", err)
 			}
+			// require.ErrorIs(t, validErr, expectedErr)
+
+			// t.Log(err)
+
+			// if err != nil {
+			// 	t.Log(err)
+			// }
 		})
 	}
 }

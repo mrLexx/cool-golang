@@ -20,8 +20,7 @@ type ItemRule struct {
 type ListRules map[string]ItemRule
 
 func ValidateLen(p string, v any) error {
-	len, err := strconv.Atoi(p)
-
+	l, err := strconv.Atoi(p)
 	if err != nil {
 		return NewExecuteError(ErrExecuteCompileRule,
 			"rule `len` must be int, but `len:%v`", p)
@@ -30,21 +29,21 @@ func ValidateLen(p string, v any) error {
 	switch v := v.(type) {
 	case []string:
 		for _, v := range v {
-			if utf8.RuneCountInString(v) > len {
-				return NewValidationError(ErrValidationLen, "")
+			if utf8.RuneCountInString(v) > l {
+				return ErrValidationLen
 			}
 		}
 	case string:
-		if utf8.RuneCountInString(v) > len {
-			return NewValidationError(ErrValidationLen, "")
+		if utf8.RuneCountInString(v) > l {
+			return ErrValidationLen
 		}
 	default:
 		return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (string)")
 	}
 
 	return nil
-
 }
+
 func ValidateRegexp(p string, v any) error {
 	if _, ok := regexpList[p]; !ok {
 		rg, err := regexp.Compile(p)
@@ -59,12 +58,12 @@ func ValidateRegexp(p string, v any) error {
 	case []string:
 		for _, v := range v {
 			if !regexpList[p].MatchString(v) {
-				return NewValidationError(ErrValidationOut, "")
+				return ErrValidationRegexp
 			}
 		}
 	case string:
 		if !regexpList[p].MatchString(v) {
-			return NewValidationError(ErrValidationOut, "")
+			return ErrValidationRegexp
 		}
 	default:
 		return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (string)")
@@ -72,17 +71,17 @@ func ValidateRegexp(p string, v any) error {
 
 	return nil
 }
-func ValidateIn(p string, v any) error {
 
+func ValidateIn(p string, v any) error {
 	for _, r := range strings.Split(p, ",") {
 		switch v := v.(type) {
 		case []string:
 			if !slices.Contains(v, r) {
-				return NewValidationError(ErrValidationIn, "")
+				return ErrValidationIn
 			}
 		case string:
 			if r != v {
-				return NewValidationError(ErrValidationIn, "")
+				return ErrValidationIn
 			}
 		case []int:
 			i, err := strconv.Atoi(r)
@@ -91,7 +90,7 @@ func ValidateIn(p string, v any) error {
 					"rule `in` must be int, but `in:%v`", r)
 			}
 			if !slices.Contains(v, i) {
-				return NewValidationError(ErrValidationIn, "")
+				return ErrValidationIn
 			}
 		case int:
 			i, err := strconv.Atoi(r)
@@ -100,15 +99,15 @@ func ValidateIn(p string, v any) error {
 					"rule `in` must be int, but `in:%v`", r)
 			}
 			if i != v {
-				return NewValidationError(ErrValidationIn, "")
+				return ErrValidationIn
 			}
 		default:
 			return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (string,int)")
-
 		}
 	}
 	return nil
 }
+
 func ValidateMin(p string, v any) error {
 	switch v := v.(type) {
 	case []int:
@@ -119,7 +118,7 @@ func ValidateMin(p string, v any) error {
 		}
 		for _, v := range v {
 			if v < pi {
-				return NewValidationError(ErrValidationMin, "")
+				return ErrValidationMin
 			}
 		}
 	case int:
@@ -129,13 +128,14 @@ func ValidateMin(p string, v any) error {
 				"rule `min` must be int, but `min:%v`", p)
 		}
 		if v < pi {
-			return NewValidationError(ErrValidationMin, "")
+			return ErrValidationMin
 		}
 	default:
 		return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (int)")
 	}
 	return nil
 }
+
 func ValidateMax(p string, v any) error {
 	switch v := v.(type) {
 	case []int:
@@ -146,7 +146,7 @@ func ValidateMax(p string, v any) error {
 		}
 		for _, v := range v {
 			if v > pi {
-				return NewValidationError(ErrValidationMax, "")
+				return ErrValidationMax
 			}
 		}
 	case int:
@@ -156,24 +156,24 @@ func ValidateMax(p string, v any) error {
 				"rule `max` must be int, but `max:%v`", p)
 		}
 		if v > pi {
-			return NewValidationError(ErrValidationMax, "")
+			return ErrValidationMax
 		}
 	default:
 		return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (int)")
 	}
 	return nil
 }
-func ValidateOut(p string, v any) error {
 
+func ValidateOut(p string, v any) error {
 	for _, r := range strings.Split(p, ",") {
 		switch v := v.(type) {
 		case []string:
 			if slices.Contains(v, r) {
-				return NewValidationError(ErrValidationOut, "")
+				return ErrValidationOut
 			}
 		case string:
 			if r == v {
-				return NewValidationError(ErrValidationOut, "")
+				return ErrValidationOut
 			}
 		case []int:
 			i, err := strconv.Atoi(r)
@@ -182,7 +182,7 @@ func ValidateOut(p string, v any) error {
 					"rule `out` must be int, but `out:%v`", r)
 			}
 			if slices.Contains(v, i) {
-				return NewValidationError(ErrValidationOut, "")
+				return ErrValidationOut
 			}
 		case int:
 			i, err := strconv.Atoi(r)
@@ -191,11 +191,10 @@ func ValidateOut(p string, v any) error {
 					"rule `out` must be int, but `out:%v`", r)
 			}
 			if i == v {
-				return NewValidationError(ErrValidationOut, "")
+				return ErrValidationOut
 			}
 		default:
 			return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (string,int)")
-
 		}
 	}
 	return nil
@@ -204,17 +203,4 @@ func ValidateOut(p string, v any) error {
 type RuleSet struct {
 	Name    string
 	Payload string
-}
-
-func extractRule(tag string) (RuleSet, error) {
-	tmp := strings.Split(tag, ":")
-	if len(tmp) != 2 || tmp[1] == "" {
-		return RuleSet{}, NewExecuteError(ErrExecuteIncompleteRule, "has an incomplete rule `%v`", tag)
-	}
-	r, p := tmp[0], tmp[1]
-	return RuleSet{Name: r, Payload: p}, nil
-}
-
-func splitTag(tag string) []string {
-	return strings.Split(tag, "|")
 }
