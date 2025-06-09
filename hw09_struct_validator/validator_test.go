@@ -289,7 +289,7 @@ func TestErrorExecute(t *testing.T) {
 
 			// второй вариант: работаем напрямую с ошибкой через Unwrap
 			require.ErrorIs(t, err, expectedErr)
-			t.Log(err)
+			// t.Log(err)
 		})
 	}
 }

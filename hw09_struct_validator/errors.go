@@ -63,19 +63,20 @@ func NewValidationError(err error, f string) error {
 	}
 }
 
-func SeparateValidateError(err error) error {
-	var validErr *ValidationError
-	switch {
-	case errors.As(err, &validErr):
-		validErrs = append(validErrs, *validErr)
-	default:
-		if err != nil {
-			return err
+/*
+	 func separateValidateError(err error) error {
+		var validErr *ValidationError
+		switch {
+		case errors.As(err, &validErr):
+			validErrs = append(validErrs, *validErr)
+		default:
+			if err != nil {
+				return err
+			}
 		}
+		return nil
 	}
-	return nil
-}
-
+*/
 type ValidationErrors []ValidationError
 
 func (v ValidationErrors) Error() string {

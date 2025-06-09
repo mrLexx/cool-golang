@@ -2,7 +2,6 @@ package hw09structvalidator
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -36,7 +35,7 @@ var rulesStore = ListRules{
 	},
 }
 
-var validErrs = make(ValidationErrors, 0)
+var validationErrs = make(ValidationErrors, 0)
 
 func Validate(v any) error {
 	val := reflect.ValueOf(v)
@@ -51,27 +50,24 @@ func Validate(v any) error {
 		if elemKind != reflect.Struct && !(elemKind == reflect.Pointer && typ.Elem().Elem().Kind() == reflect.Struct) {
 			return NewExecuteError(ErrExecuteWrongInput, "expected slice of structs or *structs, got %T", v)
 		}
-		if err := validateObj(val); err != nil {
+		if err := validateStruct(val); err != nil {
 			return err
 		}
 
 	default:
-		if err := validateObj(val); err != nil {
+		if err := validateStruct(val); err != nil {
 			return err
 		}
 	}
-	fmt.Println("len valid Errors: ", len(validErrs))
-	for _, v := range validErrs {
-		fmt.Println(v.Error())
-	}
-	if len(validErrs) > 0 {
-		return validErrs
+	if len(validationErrs) > 0 {
+		return validationErrs
 	}
 	return nil
 }
 
-func validateObj(val reflect.Value) error {
-	if val.Kind() == reflect.Slice {
+func validateStruct(val reflect.Value) error {
+	switch {
+	case val.Kind() == reflect.Slice:
 		for i := range val.Len() {
 			elem := val.Index(i)
 			if elem.Kind() == reflect.Pointer {
@@ -80,70 +76,71 @@ func validateObj(val reflect.Value) error {
 				}
 				elem = elem.Elem()
 			}
-			err := validateItem(elem)
-			var validErr *ValidationError
-			switch {
-			case errors.As(err, &validErr):
-				validErrs = append(validErrs, *validErr)
-			default:
+			err := validateField(elem)
+			if err != nil {
 				return err
 			}
 		}
-	} else {
-		err := validateItem(val)
-		var validErr *ValidationError
-		switch {
-		case errors.As(err, &validErr):
-			validErrs = append(validErrs, *validErr)
-		default:
+	default:
+		err := validateField(val)
+		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
-func validateItem(v reflect.Value) error {
+func validateField(v reflect.Value) error {
 	vt := v.Type()
 	for i := range vt.NumField() {
 		f := vt.Field(i)
 
 		tag, ok := f.Tag.Lookup(ValidateTag)
 
-		if ok {
-			if tag == "nested" {
-				vn := v.Field(i)
-				if err := SeparateValidateError(validateObj(vn)); err != nil {
-					return err
-				}
-			} else {
-				for _, t := range splitTag(tag) {
-					rs, err := extractRule(t)
-					if err != nil {
-						return err
-					}
-					itm, ok := rulesStore[rs.Name]
-					if !ok {
-						return NewExecuteError(ErrExecuteUndefinedRule, "has an undefined rule `%v`", rs.Name)
-					}
+		if !ok {
+			continue
+		}
 
-					err = itm.ValidateData(rs.Payload, v.Field(i).Interface())
+		vn := v.Field(i)
 
-					var execErr *ExecuteError
-					if errors.As(err, &execErr) {
-						return err
-					}
-					if err != nil {
-						validErrs = append(validErrs, ValidationError{
-							Field: f.Name,
-							Err:   err,
-						})
-					}
-				}
+		switch {
+		case tag == "nested":
+			if err := validateStruct(vn); err != nil {
+				return err
+			}
+		default:
+			if err := validateTag(f.Name, tag, vn.Interface()); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
+}
 
+func validateTag(fName, tag string, v any) error {
+	for _, r := range splitRules(tag) {
+		rs, err := extractRule(r)
+		if err != nil {
+			return err
+		}
+		itm, ok := rulesStore[rs.Name]
+		if !ok {
+			return NewExecuteError(ErrExecuteUndefinedRule, "has an undefined rule `%v`", rs.Name)
+		}
+
+		err = itm.ValidateData(rs.Payload, v)
+
+		var execErr *ExecuteError
+		if errors.As(err, &execErr) {
+			return err
+		}
+		if err != nil {
+			validationErrs = append(validationErrs, ValidationError{
+				Field: fName,
+				Err:   err,
+			})
+		}
+	}
 	return nil
 }
 
@@ -156,6 +153,6 @@ func extractRule(tag string) (RuleSet, error) {
 	return RuleSet{Name: r, Payload: p}, nil
 }
 
-func splitTag(tag string) []string {
+func splitRules(tag string) []string {
 	return strings.Split(tag, "|")
 }
