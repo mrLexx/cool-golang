@@ -9,6 +9,7 @@ import (
 )
 
 type UserRole string
+
 type UserRoleNested struct {
 	Role UserRole `validate:"in:admin,stuff"`
 }
@@ -143,6 +144,7 @@ func TestValidate(t *testing.T) {
 
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			_ = t
 			test, expectedErr := tt.in, tt.expectedErr
 			_ = expectedErr
 			// t.Parallel()

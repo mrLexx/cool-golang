@@ -93,5 +93,4 @@ func separateValidationError(err error, fName string, validationErrs *Validation
 		})
 	}
 	return nil
-
 }

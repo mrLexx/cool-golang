@@ -16,27 +16,27 @@ type ruleSet struct {
 var rulesStore = ListRules{
 	"len": {
 		Type:     []reflect.Kind{reflect.String},
-		validate: validateLen,
+		Validate: validateLen,
 	},
 	"regexp": {
 		Type:     []reflect.Kind{reflect.String},
-		validate: validateRegexp,
+		Validate: validateRegexp,
 	},
 	"in": {
 		Type:     []reflect.Kind{reflect.String, reflect.Int},
-		validate: validateIn,
+		Validate: validateIn,
 	},
 	"out": {
 		Type:     []reflect.Kind{reflect.String, reflect.Int},
-		validate: validateOut,
+		Validate: validateOut,
 	},
 	"min": {
 		Type:     []reflect.Kind{reflect.Int},
-		validate: validateMin,
+		Validate: validateMin,
 	},
 	"max": {
 		Type:     []reflect.Kind{reflect.Int},
-		validate: validateMax,
+		Validate: validateMax,
 	},
 }
 
@@ -129,6 +129,9 @@ func validateField(v reflect.Value, validationErrs *ValidationErrors) error {
 
 func validateTag(fName, tag string, v any, validationErrs *ValidationErrors) error {
 	for _, r := range splitRules(tag) {
+		tp := reflect.TypeOf(v)
+		kn := tp.Kind()
+
 		rs, err := extractRule(r)
 		if err != nil {
 			return err
@@ -138,33 +141,28 @@ func validateTag(fName, tag string, v any, validationErrs *ValidationErrors) err
 			return NewExecuteError(ErrExecuteUndefinedRule, "has an undefined rule `%v`", rs.Name)
 		}
 
-		tp := reflect.TypeOf(v)
-		kn := tp.Kind()
-
 		if kn == reflect.Slice {
 			kn := tp.Elem().Kind()
 			v := reflect.ValueOf(v)
 
 			for i := range v.Len() {
 				if err := separateValidationError(
-					itm.validate(rs.Payload, v.Index(i)),
+					itm.Validate(rs.Payload, valueSet{Val: v.Index(i), Type: kn}),
 					fName,
 					validationErrs,
 				); err != nil {
 					return err
 				}
-
 			}
 		} else {
 			if err := separateValidationError(
-				itm.validate(rs.Payload, reflect.ValueOf(v)),
+				itm.Validate(rs.Payload, valueSet{Val: reflect.ValueOf(v), Type: kn}),
 				fName,
 				validationErrs,
 			); err != nil {
 				return err
 			}
 		}
-
 	}
 	return nil
 }

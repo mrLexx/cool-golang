@@ -14,38 +14,36 @@ var regexpList = make(map[string]*regexp.Regexp, 0)
 
 type ItemRule struct {
 	Type     []reflect.Kind
-	validate func(p string, v reflect.Value) error
+	Validate func(p string, v valueSet) error
 }
 
 type ListRules map[string]ItemRule
 
 type valueSet struct {
-	val reflect.Value
-	t   reflect.Kind
+	Val  reflect.Value
+	Type reflect.Kind
 }
 
-func validateLen(p string, v reflect.Value) error {
+func validateLen(p string, v valueSet) error {
 	l, err := strconv.Atoi(p)
 	if err != nil {
 		return NewExecuteError(ErrExecuteCompileRule, "rule `len` must be int, but `len:%v`", p)
 	}
-	kn := v.Kind()
 	switch {
-	case kn == reflect.String:
-		if utf8.RuneCountInString(v.Interface().(string)) > l {
+	case v.Type == reflect.String:
+		if utf8.RuneCountInString(v.Val.String()) > l {
 			return fmt.Errorf("should be less %v: %w", l, ErrValidationLen)
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be string, but (%v) is obtained.", kn)
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be string, but (%v) is obtained.", v.Type)
 	}
 
 	return nil
 }
 
-func validateRegexp(p string, v reflect.Value) error {
-	kn := v.Kind()
+func validateRegexp(p string, v valueSet) error {
 	switch {
-	case kn == reflect.String:
+	case v.Type == reflect.String:
 		if _, ok := regexpList[p]; !ok {
 			rg, err := regexp.Compile(p)
 			if err != nil {
@@ -54,102 +52,98 @@ func validateRegexp(p string, v reflect.Value) error {
 			}
 			regexpList[p] = rg
 		}
-		if !regexpList[p].MatchString(v.Interface().(string)) {
-			return fmt.Errorf("regexp `%v` not match `%v`: %w", p, v.Interface().(string), ErrValidationRegexp)
+		if !regexpList[p].MatchString(v.Val.String()) {
+			return fmt.Errorf("regexp `%v` not match `%v`: %w", p, v.Val.String(), ErrValidationRegexp)
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be string, but (%v) is obtained.", kn)
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be string, but (%v) is obtained.", v.Type)
 	}
 
 	return nil
 }
 
-func validateIn(p string, v reflect.Value) error {
+func validateIn(p string, v valueSet) error {
 	slS := strings.Split(p, ",")
-	kn := v.Kind()
 	switch {
-	case kn == reflect.Int:
-		slI := make([]int, len(slS))
+	case v.Type == reflect.Int:
+		slI := make([]int64, len(slS))
 		for i, v := range slS {
 			v, err := strconv.Atoi(v)
 			if err != nil {
 				return NewExecuteError(ErrExecuteCompileRule,
 					"rule `in` must be int, but `in:%v`", slS[i])
 			}
-			slI[i] = v
+			slI[i] = int64(v)
 		}
-		if !slices.Contains(slI, v.Interface().(int)) {
-			return fmt.Errorf("%v not in %v: %w", v.Interface().(int), slI, ErrValidationIn)
+		if !slices.Contains(slI, v.Val.Int()) {
+			return fmt.Errorf("%v not in %v: %w", v.Val.Int(), slI, ErrValidationIn)
 		}
-	case kn == reflect.String:
-		if !slices.Contains(slS, v.Interface().(string)) {
-			return fmt.Errorf("%v not in %v : %w", v.Interface().(string), slS, ErrValidationIn)
+	case v.Type == reflect.String:
+		if !slices.Contains(slS, v.Val.String()) {
+			return fmt.Errorf("%v not in %v : %w", v.Val.String(), slS, ErrValidationIn)
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int|string, but (%v) is obtained.", kn)
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int|string, but (%v) is obtained.", v.Type)
 	}
 	return nil
 }
 
-func validateOut(p string, v reflect.Value) error {
+func validateOut(p string, v valueSet) error {
 	slS := strings.Split(p, ",")
-	kn := v.Kind()
 	switch {
-	case kn == reflect.Int:
-		slI := make([]int, len(slS))
+	case v.Type == reflect.Int:
+		slI := make([]int64, len(slS))
 		for i, v := range slS {
 			v, err := strconv.Atoi(v)
 			if err != nil {
 				return NewExecuteError(ErrExecuteCompileRule,
 					"rule `in` must be int, but `in:%v`", slS[i])
 			}
-			slI[i] = v
+			slI[i] = int64(v)
 		}
-		if slices.Contains(slI, v.Interface().(int)) {
-			return fmt.Errorf("%v not out %v: %w", v.Interface().(int), slI, ErrValidationIn)
+		if slices.Contains(slI, v.Val.Int()) {
+			return fmt.Errorf("%v not out %v: %w", v.Val.Int(), slI, ErrValidationIn)
 		}
-	case kn == reflect.String:
-		if slices.Contains(slS, v.Interface().(string)) {
-			return fmt.Errorf("%v not out %v : %w", v.Interface().(string), slS, ErrValidationIn)
+	case v.Type == reflect.String:
+		if slices.Contains(slS, v.Val.String()) {
+			return fmt.Errorf("%v not out %v : %w", v.Val.String(), slS, ErrValidationIn)
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int|string, but (%v) is obtained.", kn)
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int|string, but (%v) is obtained.", v.Type)
 	}
 	return nil
 }
 
-func validateMin(p string, v reflect.Value) error {
-	kn := v.Kind()
+func validateMin(p string, v valueSet) error {
 	switch {
-	case kn == reflect.Int:
+	case v.Type == reflect.Int:
 		m, err := strconv.Atoi(p)
 		if err != nil {
 			return NewExecuteError(ErrExecuteCompileRule,
 				"rule `min` must be int, but `min:%v`", p)
 		}
-		if v.Interface().(int) < m {
-			return fmt.Errorf("min %v, but %v : %w", m, v.Interface().(int), ErrValidationMin)
+		if v.Val.Int() < int64(m) {
+			return fmt.Errorf("min %v, but %v : %w", m, v.Val.Int(), ErrValidationMin)
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int, but (%v) is obtained.", kn)
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int, but (%v) is obtained.", v.Type)
 	}
 	return nil
 }
 
-func validateMax(p string, v reflect.Value) error {
-	kn := v.Kind()
+func validateMax(p string, v valueSet) error {
 	switch {
-	case kn == reflect.Int:
+	case v.Type == reflect.Int:
 		m, err := strconv.Atoi(p)
 		if err != nil {
 			return NewExecuteError(ErrExecuteCompileRule,
 				"rule `min` must be int, but `min:%v`", p)
 		}
-		if v.Interface().(int) > m {
-			return fmt.Errorf("max %v, but %v : %w", m, v.Interface().(int), ErrValidationMax)
+		if v.Val.Int() > int64(m) {
+			return fmt.Errorf("max %v, but %v : %w", m, v.Val.Int(), ErrValidationMax)
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int, but (%v) is obtained.", kn)
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int, but (%v) is obtained.", v.Type)
 	}
 	return nil
 }
