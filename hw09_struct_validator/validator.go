@@ -1,39 +1,42 @@
 package hw09structvalidator
 
 import (
-	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 	"strings"
 )
 
 const ValidateTag = "validate"
 
+type ruleSet struct {
+	Name    string
+	Payload string
+}
+
 var rulesStore = ListRules{
 	"len": {
-		Type:         []reflect.Kind{reflect.String},
-		ValidateData: validateLen,
+		Type:     []reflect.Kind{reflect.String},
+		validate: validateLen,
 	},
 	"regexp": {
-		Type:         []reflect.Kind{reflect.String},
-		ValidateData: validateRegexp,
+		Type:     []reflect.Kind{reflect.String},
+		validate: validateRegexp,
 	},
 	"in": {
-		Type:         []reflect.Kind{reflect.String, reflect.Int},
-		ValidateData: validateIn,
+		Type:     []reflect.Kind{reflect.String, reflect.Int},
+		validate: validateIn,
 	},
 	"out": {
-		Type:         []reflect.Kind{reflect.String, reflect.Int},
-		ValidateData: validateOut,
+		Type:     []reflect.Kind{reflect.String, reflect.Int},
+		validate: validateOut,
 	},
 	"min": {
-		Type:         []reflect.Kind{reflect.Int},
-		ValidateData: validateMin,
+		Type:     []reflect.Kind{reflect.Int},
+		validate: validateMin,
 	},
 	"max": {
-		Type:         []reflect.Kind{reflect.Int},
-		ValidateData: validateMax,
+		Type:     []reflect.Kind{reflect.Int},
+		validate: validateMax,
 	},
 }
 
@@ -46,7 +49,6 @@ func Validate(v any) error {
 
 	switch {
 	case typKind != reflect.Struct && typKind != reflect.Slice:
-		slog.Info("48")
 		return NewExecuteError(ErrExecuteWrongInput, "expected struct or slice of structs, got %T", v)
 
 	case typKind == reflect.Slice:
@@ -55,26 +57,24 @@ func Validate(v any) error {
 			return NewExecuteError(ErrExecuteWrongInput, "expected slice of structs or *structs, got %T", v)
 		}
 		if err := validateStruct(val, &validationErrs); err != nil {
-			slog.Info("57")
 			return err
 		}
 
 	default:
 		if err := validateStruct(val, &validationErrs); err != nil {
-			slog.Info("63")
 			return err
 		}
 	}
 
 	if len(validationErrs) > 0 {
-		slog.Info("69")
 		return validationErrs
 	}
-	slog.Info("72")
 	return nil
 }
 
 func validateStruct(val reflect.Value, validationErrs *ValidationErrors) error {
+	// slog.Error(val.Type().Name())
+
 	switch {
 	case val.Kind() == reflect.Slice:
 		for i := range val.Len() {
@@ -138,18 +138,33 @@ func validateTag(fName, tag string, v any, validationErrs *ValidationErrors) err
 			return NewExecuteError(ErrExecuteUndefinedRule, "has an undefined rule `%v`", rs.Name)
 		}
 
-		err = itm.ValidateData(rs.Payload, v)
+		tp := reflect.TypeOf(v)
+		kn := tp.Kind()
 
-		var execErr *ExecuteError
-		if errors.As(err, &execErr) {
-			return err
+		if kn == reflect.Slice {
+			kn := tp.Elem().Kind()
+			v := reflect.ValueOf(v)
+
+			for i := range v.Len() {
+				if err := separateValidationError(
+					itm.validate(rs.Payload, v.Index(i)),
+					fName,
+					validationErrs,
+				); err != nil {
+					return err
+				}
+
+			}
+		} else {
+			if err := separateValidationError(
+				itm.validate(rs.Payload, reflect.ValueOf(v)),
+				fName,
+				validationErrs,
+			); err != nil {
+				return err
+			}
 		}
-		if err != nil {
-			*validationErrs = append(*validationErrs, ValidationError{
-				Field: fName,
-				Err:   err,
-			})
-		}
+
 	}
 	return nil
 }

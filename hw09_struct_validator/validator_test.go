@@ -49,7 +49,12 @@ type (
 	}
 
 	My struct {
-		Tmp []string `validate:"in:200,404,500"`
+		InString  []string `validate:"in:200,404,500"`
+		InInt     []int    `validate:"in:200,404,500"`
+		OutString []string `validate:"out:200,404,500"`
+		OutInt    []int    `validate:"out:200,404,500"`
+		Email     string   `validate:"regexp:^\\w+@\\w+\\.\\w+$"`
+		Len       string   `validate:"len:3"`
 		// Role []UserRoleNested `validate:"nested"`
 		// ID     string   `json:"id" validate:"len:36|regexp:^\\w+@\\w+\\.\\w+$"`
 
@@ -66,7 +71,13 @@ func TestExecute(t *testing.T) {
 	}{
 		{
 			My{
-				Tmp: []string{"200"},
+				InString:  []string{"200", "404"},
+				InInt:     []int{200, 404},
+				OutString: []string{"201", "300"},
+				OutInt:    []int{201, 300},
+				Email:     "as@as.com",
+				Len:       "1234",
+
 				// Role: []UserRoleNested{
 				// 	{Role: "admin"},
 				// },
@@ -102,6 +113,7 @@ func TestExecute(t *testing.T) {
 			switch {
 			case errors.As(err, &validErr):
 				t.Log("Valid error!")
+				t.Log(err)
 			case errors.As(err, &execErr):
 				t.Log("Execute error!")
 				t.Log(err)

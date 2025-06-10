@@ -80,3 +80,18 @@ func (v ValidationErrors) Unwrap() []error {
 	}
 	return errs
 }
+
+func separateValidationError(err error, fName string, validationErrs *ValidationErrors) error {
+	var execErr *ExecuteError
+	if errors.As(err, &execErr) {
+		return err
+	}
+	if err != nil {
+		*validationErrs = append(*validationErrs, ValidationError{
+			Field: fName,
+			Err:   err,
+		})
+	}
+	return nil
+
+}
