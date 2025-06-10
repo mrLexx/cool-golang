@@ -36,10 +36,10 @@ func NewExecuteError(err error, format string, a ...any) error {
 
 var (
 	ErrValidationLen    = errors.New("error length string")
-	ErrValidationIn     = errors.New("error In")
-	ErrValidationOut    = errors.New("error Out")
-	ErrValidationMin    = errors.New("error Min")
-	ErrValidationMax    = errors.New("error Max")
+	ErrValidationIn     = errors.New("error In range")
+	ErrValidationOut    = errors.New("error Out range")
+	ErrValidationMin    = errors.New("error Min check")
+	ErrValidationMax    = errors.New("error Max check")
 	ErrValidationRegexp = errors.New("error Regexp")
 )
 
@@ -56,27 +56,6 @@ func (r *ValidationError) Unwrap() error {
 	return r.Err
 }
 
-func NewValidationError(err error, f string) error {
-	return &ValidationError{
-		Field: f,
-		Err:   err,
-	}
-}
-
-/*
-	 func separateValidateError(err error) error {
-		var validErr *ValidationError
-		switch {
-		case errors.As(err, &validErr):
-			validErrs = append(validErrs, *validErr)
-		default:
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-*/
 type ValidationErrors []ValidationError
 
 func (v ValidationErrors) Error() string {
@@ -92,4 +71,12 @@ func (v ValidationErrors) Error() string {
 		}
 	}
 	return sb.String()
+}
+
+func (v ValidationErrors) Unwrap() []error {
+	errs := make([]error, len(v))
+	for i := range v {
+		errs[i] = &v[i]
+	}
+	return errs
 }

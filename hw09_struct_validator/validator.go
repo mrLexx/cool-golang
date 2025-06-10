@@ -2,6 +2,8 @@ package hw09structvalidator
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 )
@@ -11,61 +13,68 @@ const ValidateTag = "validate"
 var rulesStore = ListRules{
 	"len": {
 		Type:         []reflect.Kind{reflect.String},
-		ValidateData: ValidateLen,
+		ValidateData: validateLen,
 	},
 	"regexp": {
 		Type:         []reflect.Kind{reflect.String},
-		ValidateData: ValidateRegexp,
+		ValidateData: validateRegexp,
 	},
 	"in": {
 		Type:         []reflect.Kind{reflect.String, reflect.Int},
-		ValidateData: ValidateIn,
+		ValidateData: validateIn,
 	},
 	"out": {
 		Type:         []reflect.Kind{reflect.String, reflect.Int},
-		ValidateData: ValidateOut,
+		ValidateData: validateOut,
 	},
 	"min": {
 		Type:         []reflect.Kind{reflect.Int},
-		ValidateData: ValidateMin,
+		ValidateData: validateMin,
 	},
 	"max": {
 		Type:         []reflect.Kind{reflect.Int},
-		ValidateData: ValidateMax,
+		ValidateData: validateMax,
 	},
 }
 
-var validationErrs = make(ValidationErrors, 0)
-
 func Validate(v any) error {
+	validationErrs := make(ValidationErrors, 0)
+
 	val := reflect.ValueOf(v)
 	typ := val.Type()
 	typKind := typ.Kind()
 
 	switch {
 	case typKind != reflect.Struct && typKind != reflect.Slice:
+		slog.Info("48")
 		return NewExecuteError(ErrExecuteWrongInput, "expected struct or slice of structs, got %T", v)
+
 	case typKind == reflect.Slice:
 		elemKind := typ.Elem().Kind()
 		if elemKind != reflect.Struct && !(elemKind == reflect.Pointer && typ.Elem().Elem().Kind() == reflect.Struct) {
 			return NewExecuteError(ErrExecuteWrongInput, "expected slice of structs or *structs, got %T", v)
 		}
-		if err := validateStruct(val); err != nil {
+		if err := validateStruct(val, &validationErrs); err != nil {
+			slog.Info("57")
 			return err
 		}
 
 	default:
-		if err := validateStruct(val); err != nil {
+		if err := validateStruct(val, &validationErrs); err != nil {
+			slog.Info("63")
 			return err
 		}
 	}
+
 	if len(validationErrs) > 0 {
+		slog.Info("69")
 		return validationErrs
 	}
+	slog.Info("72")
 	return nil
 }
 
-func validateStruct(val reflect.Value) error {
+func validateStruct(val reflect.Value, validationErrs *ValidationErrors) error {
 	switch {
 	case val.Kind() == reflect.Slice:
 		for i := range val.Len() {
@@ -76,21 +85,21 @@ func validateStruct(val reflect.Value) error {
 				}
 				elem = elem.Elem()
 			}
-			err := validateField(elem)
+			err := validateField(elem, validationErrs)
 			if err != nil {
 				return err
 			}
 		}
 	default:
-		err := validateField(val)
+		err := validateField(val, validationErrs)
 		if err != nil {
-			return err
+			return fmt.Errorf("%v.%w", val.Type().Name(), err)
 		}
 	}
 	return nil
 }
 
-func validateField(v reflect.Value) error {
+func validateField(v reflect.Value, validationErrs *ValidationErrors) error {
 	vt := v.Type()
 	for i := range vt.NumField() {
 		f := vt.Field(i)
@@ -105,19 +114,20 @@ func validateField(v reflect.Value) error {
 
 		switch {
 		case tag == "nested":
-			if err := validateStruct(vn); err != nil {
-				return err
+			if err := validateStruct(vn, validationErrs); err != nil {
+				return fmt.Errorf("%v: %w", f.Name, err)
 			}
 		default:
-			if err := validateTag(f.Name, tag, vn.Interface()); err != nil {
-				return err
+			if err := validateTag(f.Name, tag, vn.Interface(), validationErrs); err != nil {
+				// return err
+				return fmt.Errorf("%v: %w", f.Name, err)
 			}
 		}
 	}
 	return nil
 }
 
-func validateTag(fName, tag string, v any) error {
+func validateTag(fName, tag string, v any, validationErrs *ValidationErrors) error {
 	for _, r := range splitRules(tag) {
 		rs, err := extractRule(r)
 		if err != nil {
@@ -135,7 +145,7 @@ func validateTag(fName, tag string, v any) error {
 			return err
 		}
 		if err != nil {
-			validationErrs = append(validationErrs, ValidationError{
+			*validationErrs = append(*validationErrs, ValidationError{
 				Field: fName,
 				Err:   err,
 			})
@@ -144,13 +154,13 @@ func validateTag(fName, tag string, v any) error {
 	return nil
 }
 
-func extractRule(tag string) (RuleSet, error) {
+func extractRule(tag string) (ruleSet, error) {
 	tmp := strings.Split(tag, ":")
 	if len(tmp) != 2 || tmp[1] == "" {
-		return RuleSet{}, NewExecuteError(ErrExecuteIncompleteRule, "has an incomplete rule `%v`", tag)
+		return ruleSet{}, NewExecuteError(ErrExecuteIncompleteRule, "has an incomplete rule `%v`", tag)
 	}
 	r, p := tmp[0], tmp[1]
-	return RuleSet{Name: r, Payload: p}, nil
+	return ruleSet{Name: r, Payload: p}, nil
 }
 
 func splitRules(tag string) []string {

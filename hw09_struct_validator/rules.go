@@ -1,6 +1,7 @@
 package hw09structvalidator
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"slices"
@@ -19,7 +20,7 @@ type ItemRule struct {
 
 type ListRules map[string]ItemRule
 
-func ValidateLen(p string, v any) error {
+func validateLen(p string, v any) error {
 	l, err := strconv.Atoi(p)
 	if err != nil {
 		return NewExecuteError(ErrExecuteCompileRule,
@@ -38,13 +39,13 @@ func ValidateLen(p string, v any) error {
 			return ErrValidationLen
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (string)")
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be string, but (%T) is obtained.", v)
 	}
 
 	return nil
 }
 
-func ValidateRegexp(p string, v any) error {
+func validateRegexp(p string, v any) error {
 	if _, ok := regexpList[p]; !ok {
 		rg, err := regexp.Compile(p)
 		if err != nil {
@@ -66,15 +67,24 @@ func ValidateRegexp(p string, v any) error {
 			return ErrValidationRegexp
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (string)")
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be string, but (%T) is obtained.", v)
 	}
 
 	return nil
 }
 
-func ValidateIn(p string, v any) error {
+func validateIn(p string, v any) error {
+	rv := reflect.TypeOf(v)
+	fmt.Printf("type: %v\n", rv.Kind())
+	if rv.Kind() == reflect.Slice {
+		fmt.Printf("\tsub type: %v\n", rv.Elem().Kind())
+	}
+	fmt.Printf("type: %T\n", v)
+	fmt.Printf("\n")
+
 	for _, r := range strings.Split(p, ",") {
 		switch v := v.(type) {
+
 		case []string:
 			if !slices.Contains(v, r) {
 				return ErrValidationIn
@@ -102,13 +112,15 @@ func ValidateIn(p string, v any) error {
 				return ErrValidationIn
 			}
 		default:
-			return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (string,int)")
+			fmt.Printf("type: %v\n", reflect.ValueOf(v).Kind())
+			fmt.Printf("type: %T\n", v)
+			return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int|string, but (%T) is obtained.", v)
 		}
 	}
 	return nil
 }
 
-func ValidateMin(p string, v any) error {
+func validateMin(p string, v any) error {
 	switch v := v.(type) {
 	case []int:
 		pi, err := strconv.Atoi(p)
@@ -131,12 +143,12 @@ func ValidateMin(p string, v any) error {
 			return ErrValidationMin
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (int)")
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int, but (%T) is obtained.", v)
 	}
 	return nil
 }
 
-func ValidateMax(p string, v any) error {
+func validateMax(p string, v any) error {
 	switch v := v.(type) {
 	case []int:
 		pi, err := strconv.Atoi(p)
@@ -159,12 +171,12 @@ func ValidateMax(p string, v any) error {
 			return ErrValidationMax
 		}
 	default:
-		return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (int)")
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int, but (%T) is obtained.", v)
 	}
 	return nil
 }
 
-func ValidateOut(p string, v any) error {
+func validateOut(p string, v any) error {
 	for _, r := range strings.Split(p, ",") {
 		switch v := v.(type) {
 		case []string:
@@ -194,13 +206,13 @@ func ValidateOut(p string, v any) error {
 				return ErrValidationOut
 			}
 		default:
-			return NewExecuteError(ErrExecuteWrongRuleType, "this rule only for (string,int)")
+			return NewExecuteError(ErrExecuteWrongRuleType, "the type must be int|string, but (%T) is obtained.", v)
 		}
 	}
 	return nil
 }
 
-type RuleSet struct {
+type ruleSet struct {
 	Name    string
 	Payload string
 }
