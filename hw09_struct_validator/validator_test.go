@@ -16,17 +16,27 @@ type UserRoleNested struct {
 
 // Test the function on different structures and other types.
 type (
+	MetaSub struct {
+		Ident []string `validate:"len:5"`
+		Desc  string   `validate:"require"`
+		Point int      `validate:"require"`
+	}
 	Meta struct {
-		Info  string `validate:"len:11"`
-		Range int    `validate:"min:10|max:50"`
+		Info  string    `validate:"len:17"`
+		Range int       `validate:"min:10|max:50|out:45,27"`
+		Sub   []MetaSub `validate:"nested"`
 	}
 	User struct {
-		ID     string   `json:"id" validate:"len:36|regexp:^\\w+@\\w+\\.\\w+$"`
-		Phones []string `validate:"len:11"`
-		Name   string   `json:"name"`
-		Age    int      `validate:"min:18|max:50"`
+		ID     string `json:"id" validate:"len:15"`
+		Name   string
+		Age    int      `validate:"min:18|max:50|out:23"`
 		Email  string   `validate:"regexp:^\\w+@\\w+\\.\\w+$"`
-		Role   UserRole `validate:"in:admin,stuff"`
+		Role   UserRole `validate:"in:admin,stuff|out:root"`
+		Phones []string `validate:"len:10"`
+		Limbs  int      `validate:"in:1,2,3,4"`
+		Eyes   int      `validate:"min:0|max:4|out:3,4"`
+		Weight int      `validate:"require"`
+		Bio    string   `validate:"require"`
 		Meta   Meta     `validate:"nested"`
 	}
 
@@ -44,101 +54,652 @@ type (
 		Code int    `validate:"in:200,404,500"`
 		Body string `json:"omitempty"`
 	}
-
-	MyNested struct {
-		OtherF []string `json:"id" validate:"len:5"`
-	}
-
-	My struct {
-		InString  []string `validate:"in:200,404,500"`
-		InInt     []int    `validate:"in:200,404,500"`
-		OutString []string `validate:"out:200,404,500"`
-		OutInt    []int    `validate:"out:200,404,500"`
-		Email     string   `validate:"regexp:^\\w+@\\w+\\.\\w+$"`
-		Len       string   `validate:"len:3"`
-		// Role []UserRoleNested `validate:"nested"`
-		// ID     string   `json:"id" validate:"len:36|regexp:^\\w+@\\w+\\.\\w+$"`
-
-		// ID     string     `json:"id" validate:"len:1"`
-		// Phones []string   `validate:"len:15"`
-		// Nested []MyNested `validate:"nested"`
-	}
 )
 
-func TestExecute(t *testing.T) {
-	tests := []struct {
-		in          interface{}
-		expectedErr error
-	}{
-		{
-			My{
-				InString:  []string{"200", "404"},
-				InInt:     []int{200, 404},
-				OutString: []string{"201", "300"},
-				OutInt:    []int{201, 300},
-				Email:     "as@as.com",
-				Len:       "1234",
-
-				// Role: []UserRoleNested{
-				// 	{Role: "admin"},
-				// },
-				/* ID: "dd👍",
-				Phones: []string{
-					"12345678901👍",
-					"phont2",
-				},
-
-				Nested: []MyNested{
-					{
-						OtherF: []string{"phont1👍", "phont2"},
-					},
-					{
-						OtherF: []string{"level1👍", "level2"},
-					},
-				}, */
-			}, ErrValidationLen,
-		},
-	}
-
-	for i, tt := range tests {
-		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			_ = t
-			test, expectedErr := tt.in, tt.expectedErr
-			_ = expectedErr
-			t.Parallel()
-
-			err := Validate(test)
-
-			var validErr *ValidationError
-			var execErr *ExecuteError
-			switch {
-			case errors.As(err, &validErr):
-				t.Log("Valid error!")
-				t.Log(err)
-			case errors.As(err, &execErr):
-				t.Log("Execute error!")
-				t.Log(err)
-			}
-
-			// if !errors.As(err, &validErr) {
-			// 	t.Fatalf("expected ValidationErrors, got %v", err)
-			// }
-			// require.ErrorIs(t, err, expectedErr)
-		})
-	}
-}
-
+//nolint:funlen
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		in          interface{}
 		expectedErr error
 	}{
 		{
-			User{
-				ID:   "dd",
-				Name: "name",
+			Token{
+				Header:    []byte("header data"),
+				Payload:   []byte("payload data"),
+				Signature: []byte("signature data"),
 			},
 			nil,
+		},
+		{
+			Response{
+				Code: 200,
+				Body: "sdsd",
+			},
+			nil,
+		},
+		{
+			Response{
+				Code: 202,
+				Body: "sdsd",
+			},
+			ErrValidationIn,
+		},
+		{
+			[]Response{
+				{
+					Code: 200,
+					Body: "sdsd",
+				},
+				{
+					Code: 202,
+					Body: "sdsd",
+				},
+			},
+			ErrValidationIn,
+		},
+		{
+			App{
+				Version: "12345",
+			},
+			nil,
+		},
+		{
+			App{
+				Version: "123456",
+			},
+			ErrValidationLen,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			nil,
+		},
+		{
+			User{
+				ID:     "HASH😎678901234", // error
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationLen,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "emailmail.ru", // error
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationRegexp,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "other", // error
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationIn,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "root",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationOut,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationLen,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  6, // error
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationIn,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 0, // error
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationRequire,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "", // error
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationRequire,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 45, // error
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationOut,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 51, // error
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationMax,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 9, // error
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationMin,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "nformation abou👍", // error
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationLen,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"2345", // error
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcv", // error
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationLen,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							// Desc:  "go, golang, goshechka",// error
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationRequire,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc: "go, golang, goshechka",
+							// Point: 2,// error
+						},
+					},
+				},
+			},
+			ErrValidationRequire,
 		},
 	}
 
@@ -150,12 +711,17 @@ func TestValidate(t *testing.T) {
 			// t.Parallel()
 
 			err := Validate(test)
-			_ = err
-			// var validErrs *ValidationError
-			// if !errors.As(err, &validErrs) {
-			// t.Fatalf("expected ValidationErrors, got %v", err)
-			// }
-			// require.ErrorIs(t, err, expectedErr)
+
+			switch {
+			case expectedErr == nil:
+				require.Nil(t, err)
+			default:
+				var validErrs ValidationErrors
+				if !errors.As(err, &validErrs) {
+					t.Fatalf("expected ValidationErrors, got %v", err)
+				}
+				require.ErrorIs(t, validErrs, expectedErr)
+			}
 		})
 	}
 }
@@ -296,7 +862,6 @@ func TestErrorExecute(t *testing.T) {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			test, expectedErr := tt.in, tt.expectedErr
 			t.Parallel()
-
 			err := Validate(test)
 
 			// первый вариант - разворачивания ошибки из пользовательского типа

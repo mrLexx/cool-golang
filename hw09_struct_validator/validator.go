@@ -15,27 +15,31 @@ type ruleSet struct {
 
 var rulesStore = ListRules{
 	"len": {
-		Type:     []reflect.Kind{reflect.String},
+		Typies:   []reflect.Kind{reflect.String},
 		Validate: validateLen,
 	},
 	"regexp": {
-		Type:     []reflect.Kind{reflect.String},
+		Typies:   []reflect.Kind{reflect.String},
 		Validate: validateRegexp,
 	},
+	"require": {
+		Typies:   []reflect.Kind{reflect.Int, reflect.String},
+		Validate: validateRequire,
+	},
 	"in": {
-		Type:     []reflect.Kind{reflect.String, reflect.Int},
+		Typies:   []reflect.Kind{reflect.String, reflect.Int},
 		Validate: validateIn,
 	},
 	"out": {
-		Type:     []reflect.Kind{reflect.String, reflect.Int},
+		Typies:   []reflect.Kind{reflect.String, reflect.Int},
 		Validate: validateOut,
 	},
 	"min": {
-		Type:     []reflect.Kind{reflect.Int},
+		Typies:   []reflect.Kind{reflect.Int},
 		Validate: validateMin,
 	},
 	"max": {
-		Type:     []reflect.Kind{reflect.Int},
+		Typies:   []reflect.Kind{reflect.Int},
 		Validate: validateMax,
 	},
 }
@@ -73,8 +77,6 @@ func Validate(v any) error {
 }
 
 func validateStruct(val reflect.Value, validationErrs *ValidationErrors) error {
-	// slog.Error(val.Type().Name())
-
 	switch {
 	case val.Kind() == reflect.Slice:
 		for i := range val.Len() {
@@ -105,7 +107,6 @@ func validateField(v reflect.Value, validationErrs *ValidationErrors) error {
 		f := vt.Field(i)
 
 		tag, ok := f.Tag.Lookup(ValidateTag)
-
 		if !ok {
 			continue
 		}
@@ -118,7 +119,7 @@ func validateField(v reflect.Value, validationErrs *ValidationErrors) error {
 				return fmt.Errorf("%v: %w", f.Name, err)
 			}
 		default:
-			if err := validateTag(f.Name, tag, vn.Interface(), validationErrs); err != nil {
+			if err := validateData(f.Name, tag, vn.Interface(), validationErrs); err != nil {
 				// return err
 				return fmt.Errorf("%v: %w", f.Name, err)
 			}
@@ -127,36 +128,39 @@ func validateField(v reflect.Value, validationErrs *ValidationErrors) error {
 	return nil
 }
 
-func validateTag(fName, tag string, v any, validationErrs *ValidationErrors) error {
+func validateData(fName, tag string, v any, validationErrs *ValidationErrors) error {
 	for _, r := range splitRules(tag) {
 		tp := reflect.TypeOf(v)
 		kn := tp.Kind()
 
-		rs, err := extractRule(r)
+		rS, err := extractRule(r)
 		if err != nil {
 			return err
 		}
-		itm, ok := rulesStore[rs.Name]
+		itm, ok := rulesStore[rS.Name]
 		if !ok {
-			return NewExecuteError(ErrExecuteUndefinedRule, "has an undefined rule `%v`", rs.Name)
+			return NewExecuteError(ErrExecuteUndefinedRule, "has an undefined rule `%v`", rS.Name)
 		}
 
-		if kn == reflect.Slice {
+		vRef := reflect.ValueOf(v)
+		switch {
+		case kn == reflect.Slice:
 			kn := tp.Elem().Kind()
-			v := reflect.ValueOf(v)
-
-			for i := range v.Len() {
+			if vRef.Len() == 0 {
+				vRef = reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(vRef)), 1, 1)
+			}
+			for i := range vRef.Len() {
 				if err := separateValidationError(
-					itm.Validate(rs.Payload, valueSet{Val: v.Index(i), Type: kn}),
+					itm.Validate(rS.Payload, valueSet{Val: vRef.Index(i), Type: kn}, itm.Typies),
 					fName,
 					validationErrs,
 				); err != nil {
 					return err
 				}
 			}
-		} else {
+		default:
 			if err := separateValidationError(
-				itm.Validate(rs.Payload, valueSet{Val: reflect.ValueOf(v), Type: kn}),
+				itm.Validate(rS.Payload, valueSet{Val: vRef, Type: kn}, itm.Typies),
 				fName,
 				validationErrs,
 			); err != nil {
@@ -167,10 +171,13 @@ func validateTag(fName, tag string, v any, validationErrs *ValidationErrors) err
 	return nil
 }
 
-func extractRule(tag string) (ruleSet, error) {
-	tmp := strings.Split(tag, ":")
+func extractRule(rawRule string) (ruleSet, error) {
+	if rawRule == "require" {
+		rawRule = "require:true"
+	}
+	tmp := strings.Split(rawRule, ":")
 	if len(tmp) != 2 || tmp[1] == "" {
-		return ruleSet{}, NewExecuteError(ErrExecuteIncompleteRule, "has an incomplete rule `%v`", tag)
+		return ruleSet{}, NewExecuteError(ErrExecuteIncompleteRule, "has an incomplete rule `%v`", rawRule)
 	}
 	r, p := tmp[0], tmp[1]
 	return ruleSet{Name: r, Payload: p}, nil

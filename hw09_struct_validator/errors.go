@@ -35,12 +35,13 @@ func NewExecuteError(err error, format string, a ...any) error {
 }
 
 var (
-	ErrValidationLen    = errors.New("error length string")
-	ErrValidationIn     = errors.New("error In range")
-	ErrValidationOut    = errors.New("error Out range")
-	ErrValidationMin    = errors.New("error Min check")
-	ErrValidationMax    = errors.New("error Max check")
-	ErrValidationRegexp = errors.New("error Regexp")
+	ErrValidationLen     = errors.New("error length string")
+	ErrValidationIn      = errors.New("error In range")
+	ErrValidationOut     = errors.New("error Out range")
+	ErrValidationMin     = errors.New("error Min check")
+	ErrValidationMax     = errors.New("error Max check")
+	ErrValidationRegexp  = errors.New("error Regexp")
+	ErrValidationRequire = errors.New("error Require")
 )
 
 type ValidationError struct {
@@ -89,7 +90,7 @@ func separateValidationError(err error, fName string, validationErrs *Validation
 	if err != nil {
 		*validationErrs = append(*validationErrs, ValidationError{
 			Field: fName,
-			Err:   err,
+			Err:   fmt.Errorf("%w", err),
 		})
 	}
 	return nil
