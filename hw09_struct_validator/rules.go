@@ -7,10 +7,43 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
-var regexpList = make(map[string]*regexp.Regexp, 0)
+var regexpList = NewRegexpList()
+
+type List interface {
+	Set(key string, value *regexp.Regexp) bool
+	Get(key string) (*regexp.Regexp, bool)
+}
+type rgxpList struct {
+	sync.Mutex
+	items map[string]*regexp.Regexp
+}
+
+func NewRegexpList() List {
+	return &rgxpList{
+		items: make(map[string]*regexp.Regexp, 0),
+	}
+}
+
+func (l *rgxpList) Set(key string, value *regexp.Regexp) bool {
+	l.Lock()
+	defer l.Unlock()
+	l.items[key] = value
+
+	_, ok := l.items[key]
+	return ok
+}
+
+func (l *rgxpList) Get(key string) (*regexp.Regexp, bool) {
+	l.Lock()
+	defer l.Unlock()
+
+	v, ok := l.items[key]
+	return v, ok
+}
 
 type ItemRule struct {
 	Typies   []reflect.Kind
@@ -56,18 +89,22 @@ func validateRegexp(p string, v valueSet, allowedTp []reflect.Kind) error {
 	if err := checkingTypes(allowedTp, v.Type); err != nil {
 		return err
 	}
+	// var regexpList = NewRegexpList()
 
 	switch {
 	case v.Type == reflect.String:
-		if _, ok := regexpList[p]; !ok {
-			rg, err := regexp.Compile(p)
+		rg, ok := regexpList.Get(p)
+		if !ok {
+			trg, err := regexp.Compile(p)
 			if err != nil {
 				return NewExecuteError(ErrExecuteCompileRule,
 					"error compile regexp `%v`", p)
 			}
-			regexpList[p] = rg
+			regexpList.Set(p, trg)
+			rg = trg
 		}
-		if !regexpList[p].MatchString(v.Val.String()) {
+
+		if !rg.MatchString(v.Val.String()) {
 			return fmt.Errorf("regexp `%v` not match `%v`: %w", p, v.Val.String(), ErrValidationRegexp)
 		}
 	default:

@@ -708,7 +708,7 @@ func TestValidate(t *testing.T) {
 			_ = t
 			test, expectedErr := tt.in, tt.expectedErr
 			_ = expectedErr
-			// t.Parallel()
+			t.Parallel()
 
 			err := Validate(test)
 
