@@ -7,47 +7,11 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"unicode/utf8"
 )
 
-var regexpList = NewRegexpList()
-
-type List interface {
-	Set(key string, value *regexp.Regexp) bool
-	Get(key string) (*regexp.Regexp, bool)
-}
-type rgxpList struct {
-	sync.Mutex
-	items map[string]*regexp.Regexp
-}
-
-func NewRegexpList() List {
-	return &rgxpList{
-		items: make(map[string]*regexp.Regexp, 0),
-	}
-}
-
-func (l *rgxpList) Set(key string, value *regexp.Regexp) bool {
-	l.Lock()
-	defer l.Unlock()
-	l.items[key] = value
-
-	_, ok := l.items[key]
-	return ok
-}
-
-func (l *rgxpList) Get(key string) (*regexp.Regexp, bool) {
-	l.Lock()
-	defer l.Unlock()
-
-	v, ok := l.items[key]
-	return v, ok
-}
-
 type ItemRule struct {
-	Typies   []reflect.Kind
-	Validate func(p string, v valueSet, allowedTp []reflect.Kind) error
+	Validate func(p string, v valueSet) error
 }
 
 type ListRules map[string]ItemRule
@@ -57,18 +21,7 @@ type valueSet struct {
 	Type reflect.Kind
 }
 
-func checkingTypes(allowedTp []reflect.Kind, tp reflect.Kind) error {
-	if !slices.Contains(allowedTp, tp) {
-		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be %v, but (%v) is obtained.", allowedTp, tp)
-	}
-	return nil
-}
-
-func validateLen(p string, v valueSet, allowedTp []reflect.Kind) error {
-	if err := checkingTypes(allowedTp, v.Type); err != nil {
-		return err
-	}
-
+func validateLen(p string, v valueSet) error {
 	l, err := strconv.Atoi(p)
 	if err != nil {
 		return NewExecuteError(ErrExecuteCompileRule, "rule `len` must be int, but `len:%v`", p)
@@ -79,28 +32,23 @@ func validateLen(p string, v valueSet, allowedTp []reflect.Kind) error {
 			return fmt.Errorf("length must by equil %v: %w", l, ErrValidationLen)
 		}
 	default:
-		panic(fmt.Sprintf("release validate type from %v", allowedTp))
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be (string), but (%v) is obtained.", v.Type)
 	}
 
 	return nil
 }
 
-func validateRegexp(p string, v valueSet, allowedTp []reflect.Kind) error {
-	if err := checkingTypes(allowedTp, v.Type); err != nil {
-		return err
-	}
-	// var regexpList = NewRegexpList()
-
+func validateRegexp(p string, v valueSet) error {
 	switch {
 	case v.Type == reflect.String:
-		rg, ok := regexpList.Get(p)
+		rg, ok := regexpCache.Get(cacheValue{Rule: p})
 		if !ok {
 			trg, err := regexp.Compile(p)
 			if err != nil {
 				return NewExecuteError(ErrExecuteCompileRule,
 					"error compile regexp `%v`", p)
 			}
-			regexpList.Set(p, trg)
+			regexpCache.Set(cacheValue{Rule: p}, trg)
 			rg = trg
 		}
 
@@ -108,20 +56,23 @@ func validateRegexp(p string, v valueSet, allowedTp []reflect.Kind) error {
 			return fmt.Errorf("regexp `%v` not match `%v`: %w", p, v.Val.String(), ErrValidationRegexp)
 		}
 	default:
-		panic(fmt.Sprintf("release validate type from %v", allowedTp))
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be (string), but (%v) is obtained.", v.Type)
 	}
 
 	return nil
 }
 
-func validateIn(p string, v valueSet, allowedTp []reflect.Kind) error {
-	if err := checkingTypes(allowedTp, v.Type); err != nil {
-		return err
-	}
-
-	slS := strings.Split(p, ",")
+func validateIn(p string, v valueSet) error {
 	switch {
 	case v.Type == reflect.Int:
+		if vc, ok := inCache.Get(cacheValue{Val: fmt.Sprint(v.Val.Int()), Rule: p}); ok {
+			if vc {
+				return nil
+			}
+			return fmt.Errorf("%v not in %v: %w", v.Val.Int(), p, ErrValidationIn)
+		}
+
+		slS := strings.Split(p, ",")
 		slI := make([]int64, len(slS))
 		for i, v := range slS {
 			v, err := strconv.Atoi(v)
@@ -132,26 +83,41 @@ func validateIn(p string, v valueSet, allowedTp []reflect.Kind) error {
 			slI[i] = int64(v)
 		}
 		if !slices.Contains(slI, v.Val.Int()) {
-			return fmt.Errorf("%v not in %v: %w", v.Val.Int(), slI, ErrValidationIn)
+			inCache.Set(cacheValue{Val: fmt.Sprint(v.Val.Int()), Rule: p}, false)
+			return fmt.Errorf("%v not in %v: %w", v.Val.Int(), p, ErrValidationIn)
 		}
+		inCache.Set(cacheValue{Val: fmt.Sprint(v.Val.Int()), Rule: p}, true)
 	case v.Type == reflect.String:
+		if vc, ok := inCache.Get(cacheValue{Val: v.Val.String(), Rule: p}); ok {
+			if vc {
+				return nil
+			}
+			return fmt.Errorf("%v not in %v: %w", v.Val.String(), p, ErrValidationIn)
+		}
+
+		slS := strings.Split(p, ",")
 		if !slices.Contains(slS, v.Val.String()) {
+			inCache.Set(cacheValue{Val: v.Val.String(), Rule: p}, false)
 			return fmt.Errorf("%v not in %v : %w", v.Val.String(), slS, ErrValidationIn)
 		}
+		inCache.Set(cacheValue{Val: v.Val.String(), Rule: p}, true)
 	default:
-		panic(fmt.Sprintf("release validate type from %v", allowedTp))
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be (int,string), but (%v) is obtained.", v.Type)
 	}
 	return nil
 }
 
-func validateOut(p string, v valueSet, allowedTp []reflect.Kind) error {
-	if err := checkingTypes(allowedTp, v.Type); err != nil {
-		return err
-	}
-
-	slS := strings.Split(p, ",")
+func validateOut(p string, v valueSet) error {
 	switch {
 	case v.Type == reflect.Int:
+		if vc, ok := outCache.Get(cacheValue{Val: fmt.Sprint(v.Val.Int()), Rule: p}); ok {
+			if !vc {
+				return nil
+			}
+			return fmt.Errorf("%v not out %v: %w", v.Val.Int(), p, ErrValidationOut)
+		}
+
+		slS := strings.Split(p, ",")
 		slI := make([]int64, len(slS))
 		for i, v := range slS {
 			v, err := strconv.Atoi(v)
@@ -162,23 +128,31 @@ func validateOut(p string, v valueSet, allowedTp []reflect.Kind) error {
 			slI[i] = int64(v)
 		}
 		if slices.Contains(slI, v.Val.Int()) {
+			outCache.Set(cacheValue{Val: fmt.Sprint(v.Val.Int()), Rule: p}, true)
 			return fmt.Errorf("%v not out %v: %w", v.Val.Int(), slI, ErrValidationOut)
 		}
+		outCache.Set(cacheValue{Val: fmt.Sprint(v.Val.Int()), Rule: p}, false)
 	case v.Type == reflect.String:
+		if vc, ok := outCache.Get(cacheValue{Val: v.Val.String(), Rule: p}); ok {
+			if !vc {
+				return nil
+			}
+			return fmt.Errorf("%v not out %v: %w", v.Val.String(), p, ErrValidationOut)
+		}
+
+		slS := strings.Split(p, ",")
 		if slices.Contains(slS, v.Val.String()) {
+			outCache.Set(cacheValue{Val: v.Val.String(), Rule: p}, true)
 			return fmt.Errorf("%v not out %v : %w", v.Val.String(), slS, ErrValidationOut)
 		}
+		outCache.Set(cacheValue{Val: v.Val.String(), Rule: p}, false)
 	default:
-		panic(fmt.Sprintf("release validate type from %v", allowedTp))
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be (int,string), but (%v) is obtained.", v.Type)
 	}
 	return nil
 }
 
-func validateMin(p string, v valueSet, allowedTp []reflect.Kind) error {
-	if err := checkingTypes(allowedTp, v.Type); err != nil {
-		return err
-	}
-
+func validateMin(p string, v valueSet) error {
 	switch {
 	case v.Type == reflect.Int:
 		m, err := strconv.Atoi(p)
@@ -190,16 +164,12 @@ func validateMin(p string, v valueSet, allowedTp []reflect.Kind) error {
 			return fmt.Errorf("min %v, but %v : %w", m, v.Val.Int(), ErrValidationMin)
 		}
 	default:
-		panic(fmt.Sprintf("release validate type from %v", allowedTp))
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be (int), but (%v) is obtained.", v.Type)
 	}
 	return nil
 }
 
-func validateMax(p string, v valueSet, allowedTp []reflect.Kind) error {
-	if err := checkingTypes(allowedTp, v.Type); err != nil {
-		return err
-	}
-
+func validateMax(p string, v valueSet) error {
 	switch {
 	case v.Type == reflect.Int:
 		m, err := strconv.Atoi(p)
@@ -211,16 +181,12 @@ func validateMax(p string, v valueSet, allowedTp []reflect.Kind) error {
 			return fmt.Errorf("max %v, but %v : %w", m, v.Val.Int(), ErrValidationMax)
 		}
 	default:
-		panic(fmt.Sprintf("release validate type from %v", allowedTp))
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be (int), but (%v) is obtained.", v.Type)
 	}
 	return nil
 }
 
-func validateRequire(p string, v valueSet, allowedTp []reflect.Kind) error {
-	if err := checkingTypes(allowedTp, v.Type); err != nil {
-		return err
-	}
-
+func validateRequire(p string, v valueSet) error {
 	r, err := strconv.ParseBool(p)
 	if err != nil {
 		return NewExecuteError(ErrExecuteCompileRule,
@@ -237,7 +203,7 @@ func validateRequire(p string, v valueSet, allowedTp []reflect.Kind) error {
 			return fmt.Errorf("is zero %v : %w", v.Val.String(), ErrValidationRequire)
 		}
 	default:
-		panic(fmt.Sprintf("release validate type from %v", allowedTp))
+		return NewExecuteError(ErrExecuteWrongRuleType, "the type must be (int,string), but (%v) is obtained.", v.Type)
 	}
 	return nil
 }

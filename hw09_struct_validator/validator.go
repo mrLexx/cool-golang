@@ -3,6 +3,7 @@ package hw09structvalidator
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -15,34 +16,33 @@ type ruleSet struct {
 
 var rulesStore = ListRules{
 	"len": {
-		Typies:   []reflect.Kind{reflect.String},
 		Validate: validateLen,
 	},
 	"regexp": {
-		Typies:   []reflect.Kind{reflect.String},
 		Validate: validateRegexp,
 	},
 	"require": {
-		Typies:   []reflect.Kind{reflect.Int, reflect.String},
 		Validate: validateRequire,
 	},
 	"in": {
-		Typies:   []reflect.Kind{reflect.String, reflect.Int},
 		Validate: validateIn,
 	},
 	"out": {
-		Typies:   []reflect.Kind{reflect.String, reflect.Int},
 		Validate: validateOut,
 	},
 	"min": {
-		Typies:   []reflect.Kind{reflect.Int},
 		Validate: validateMin,
 	},
 	"max": {
-		Typies:   []reflect.Kind{reflect.Int},
 		Validate: validateMax,
 	},
 }
+
+var regexpCache = NewCache[*regexp.Regexp]()
+
+var inCache = NewCache[bool]()
+
+var outCache = NewCache[bool]()
 
 func Validate(v any) error {
 	validationErrs := make(ValidationErrors, 0)
@@ -151,7 +151,7 @@ func validateData(fName, tag string, v any, validationErrs *ValidationErrors) er
 			}
 			for i := range vRef.Len() {
 				if err := separateValidationError(
-					itm.Validate(rS.Payload, valueSet{Val: vRef.Index(i), Type: kn}, itm.Typies),
+					itm.Validate(rS.Payload, valueSet{Val: vRef.Index(i), Type: kn}),
 					fName,
 					validationErrs,
 				); err != nil {
@@ -160,7 +160,7 @@ func validateData(fName, tag string, v any, validationErrs *ValidationErrors) er
 			}
 		default:
 			if err := separateValidationError(
-				itm.Validate(rS.Payload, valueSet{Val: vRef, Type: kn}, itm.Typies),
+				itm.Validate(rS.Payload, valueSet{Val: vRef, Type: kn}),
 				fName,
 				validationErrs,
 			); err != nil {

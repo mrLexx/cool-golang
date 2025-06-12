@@ -3,6 +3,7 @@ package hw09structvalidator
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -76,26 +77,6 @@ func TestValidate(t *testing.T) {
 				Body: "sdsd",
 			},
 			nil,
-		},
-		{
-			Response{
-				Code: 202,
-				Body: "sdsd",
-			},
-			ErrValidationIn,
-		},
-		{
-			[]Response{
-				{
-					Code: 200,
-					Body: "sdsd",
-				},
-				{
-					Code: 202,
-					Body: "sdsd",
-				},
-			},
-			ErrValidationIn,
 		},
 		{
 			App{
@@ -226,80 +207,6 @@ func TestValidate(t *testing.T) {
 				Name:   "User name 🙌",
 				Age:    18,
 				Email:  "email@mail.ru",
-				Role:   "other", // error
-				Phones: []string{"9652025404", "9601044485"},
-				Limbs:  4,
-				Eyes:   2,
-				Weight: 85,
-				Bio:    "Bio f f fg fg f fg",
-				Meta: Meta{
-					Info:  "Information abou👍",
-					Range: 25,
-					Sub: []MetaSub{
-						{
-							Ident: []string{
-								"12345",
-								"67890",
-							},
-							Desc:  "Description about this thing",
-							Point: 1,
-						},
-						{
-							Ident: []string{
-								"asdfg",
-								"zxcvb",
-							},
-							Desc:  "go, golang, goshechka",
-							Point: 2,
-						},
-					},
-				},
-			},
-			ErrValidationIn,
-		},
-		{
-			User{
-				ID:     "HASH😎6789012345",
-				Name:   "User name 🙌",
-				Age:    18,
-				Email:  "email@mail.ru",
-				Role:   "root",
-				Phones: []string{"9652025404", "9601044485"},
-				Limbs:  4,
-				Eyes:   2,
-				Weight: 85,
-				Bio:    "Bio f f fg fg f fg",
-				Meta: Meta{
-					Info:  "Information abou👍",
-					Range: 25,
-					Sub: []MetaSub{
-						{
-							Ident: []string{
-								"12345",
-								"67890",
-							},
-							Desc:  "Description about this thing",
-							Point: 1,
-						},
-						{
-							Ident: []string{
-								"asdfg",
-								"zxcvb",
-							},
-							Desc:  "go, golang, goshechka",
-							Point: 2,
-						},
-					},
-				},
-			},
-			ErrValidationOut,
-		},
-		{
-			User{
-				ID:     "HASH😎6789012345",
-				Name:   "User name 🙌",
-				Age:    18,
-				Email:  "email@mail.ru",
 				Role:   "admin",
 				Phones: []string{"9652025404", "601044485"},
 				Limbs:  4,
@@ -330,43 +237,6 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			ErrValidationLen,
-		},
-		{
-			User{
-				ID:     "HASH😎6789012345",
-				Name:   "User name 🙌",
-				Age:    18,
-				Email:  "email@mail.ru",
-				Role:   "admin",
-				Phones: []string{"9652025404", "9601044485"},
-				Limbs:  6, // error
-				Eyes:   2,
-				Weight: 85,
-				Bio:    "Bio f f fg fg f fg",
-				Meta: Meta{
-					Info:  "Information abou👍",
-					Range: 25,
-					Sub: []MetaSub{
-						{
-							Ident: []string{
-								"12345",
-								"67890",
-							},
-							Desc:  "Description about this thing",
-							Point: 1,
-						},
-						{
-							Ident: []string{
-								"asdfg",
-								"zxcvb",
-							},
-							Desc:  "go, golang, goshechka",
-							Point: 2,
-						},
-					},
-				},
-			},
-			ErrValidationIn,
 		},
 		{
 			User{
@@ -441,43 +311,6 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			ErrValidationRequire,
-		},
-		{
-			User{
-				ID:     "HASH😎6789012345",
-				Name:   "User name 🙌",
-				Age:    18,
-				Email:  "email@mail.ru",
-				Role:   "admin",
-				Phones: []string{"9652025404", "9601044485"},
-				Limbs:  4,
-				Eyes:   2,
-				Weight: 85,
-				Bio:    "Bio f f fg fg f fg",
-				Meta: Meta{
-					Info:  "Information abou👍",
-					Range: 45, // error
-					Sub: []MetaSub{
-						{
-							Ident: []string{
-								"12345",
-								"67890",
-							},
-							Desc:  "Description about this thing",
-							Point: 1,
-						},
-						{
-							Ident: []string{
-								"asdfg",
-								"zxcvb",
-							},
-							Desc:  "go, golang, goshechka",
-							Point: 2,
-						},
-					},
-				},
-			},
-			ErrValidationOut,
 		},
 		{
 			User{
@@ -726,6 +559,239 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestValidateIn(t *testing.T) {
+	tests := []struct {
+		in          interface{}
+		expectedErr error
+	}{
+		{
+			Response{
+				Code: 202,
+				Body: "sdsd",
+			},
+			ErrValidationIn,
+		},
+		{
+			[]Response{
+				{
+					Code: 200,
+					Body: "sdsd",
+				},
+				{
+					Code: 202,
+					Body: "sdsd",
+				},
+				{
+					Code: 202,
+					Body: "sdsd",
+				},
+			},
+			ErrValidationIn,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "other", // error
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationIn,
+		},
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  6, // error
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationIn,
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			_ = t
+			test, expectedErr := tt.in, tt.expectedErr
+			_ = expectedErr
+			// t.Parallel()
+
+			err := Validate(test)
+
+			switch {
+			case expectedErr == nil:
+				require.Nil(t, err)
+			default:
+				var validErrs ValidationErrors
+				if !errors.As(err, &validErrs) {
+					t.Fatalf("expected ValidationErrors, got %v", err)
+				}
+				require.ErrorIs(t, validErrs, expectedErr)
+			}
+		})
+	}
+}
+
+func TestValidateOut(t *testing.T) {
+	tests := []struct {
+		in          interface{}
+		expectedErr error
+	}{
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "root",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 25,
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationOut,
+		},
+
+		{
+			User{
+				ID:     "HASH😎6789012345",
+				Name:   "User name 🙌",
+				Age:    18,
+				Email:  "email@mail.ru",
+				Role:   "admin",
+				Phones: []string{"9652025404", "9601044485"},
+				Limbs:  4,
+				Eyes:   2,
+				Weight: 85,
+				Bio:    "Bio f f fg fg f fg",
+				Meta: Meta{
+					Info:  "Information abou👍",
+					Range: 45, // error
+					Sub: []MetaSub{
+						{
+							Ident: []string{
+								"12345",
+								"67890",
+							},
+							Desc:  "Description about this thing",
+							Point: 1,
+						},
+						{
+							Ident: []string{
+								"asdfg",
+								"zxcvb",
+							},
+							Desc:  "go, golang, goshechka",
+							Point: 2,
+						},
+					},
+				},
+			},
+			ErrValidationOut,
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			_ = t
+			test, expectedErr := tt.in, tt.expectedErr
+			_ = expectedErr
+			// t.Parallel()
+
+			err := Validate(test)
+
+			switch {
+			case expectedErr == nil:
+				require.Nil(t, err)
+			default:
+				var validErrs ValidationErrors
+				if !errors.As(err, &validErrs) {
+					t.Fatalf("expected ValidationErrors, got %v", err)
+				}
+				require.ErrorIs(t, validErrs, expectedErr)
+			}
+		})
+	}
+}
+
 func TestErrorExecute(t *testing.T) {
 	type UserRoleNestedLevel00 struct {
 		Name int    `validate:"len:12"`
@@ -876,4 +942,84 @@ func TestErrorExecute(t *testing.T) {
 			// t.Log(err)
 		})
 	}
+}
+
+func TestCacheIn(t *testing.T) {
+	getCacheItems := func(cache *cache[bool]) map[cacheValue]bool {
+		val := reflect.ValueOf(*cache)
+		if val.Kind() == reflect.Ptr {
+			val = val.Elem()
+		}
+		field := val.FieldByName("Items")
+		return field.Interface().(map[cacheValue]bool)
+	}
+
+	type UserRole struct {
+		Ident  []int    `validate:"in:1,2,3,4,5,6,7"`
+		Letter []string `validate:"in:a,b,d,e"`
+	}
+	testCache := NewCache[bool]()
+	testCache.Set(cacheValue{Val: "1", Rule: "1,2,3,4,5,6,7"}, true)
+	testCache.Set(cacheValue{Val: "2", Rule: "1,2,3,4,5,6,7"}, true)
+	testCache.Set(cacheValue{Val: "3", Rule: "1,2,3,4,5,6,7"}, true)
+	testCache.Set(cacheValue{Val: "4", Rule: "1,2,3,4,5,6,7"}, true)
+	testCache.Set(cacheValue{Val: "5", Rule: "1,2,3,4,5,6,7"}, true)
+	testCache.Set(cacheValue{Val: "6", Rule: "1,2,3,4,5,6,7"}, true)
+	testCache.Set(cacheValue{Val: "8", Rule: "1,2,3,4,5,6,7"}, false)
+	testCache.Set(cacheValue{Val: "a", Rule: "a,b,d,e"}, true)
+	testCache.Set(cacheValue{Val: "c", Rule: "a,b,d,e"}, false)
+
+	regexpCache.Reset()
+	inCache.Reset()
+	outCache.Reset()
+	t.Run("In", func(t *testing.T) {
+		test := UserRole{
+			Ident:  []int{1, 1, 1, 1, 2, 3, 4, 5, 6, 6, 6, 8},
+			Letter: []string{"a", "c"},
+		}
+
+		t.Parallel()
+		Validate(test)
+		require.Equal(t, getCacheItems(&testCache), getCacheItems(&inCache))
+	})
+}
+
+func TestCacheOut(t *testing.T) {
+	getCacheItems := func(cache *cache[bool]) map[cacheValue]bool {
+		val := reflect.ValueOf(*cache)
+		if val.Kind() == reflect.Ptr {
+			val = val.Elem()
+		}
+		field := val.FieldByName("Items")
+		return field.Interface().(map[cacheValue]bool)
+	}
+
+	type UserRole struct {
+		Ident  []int    `validate:"out:-2,-1,0,1,2"`
+		Letter []string `validate:"out:as,zx,cv,df"`
+	}
+	testCache := NewCache[bool]()
+	testCache.Set(cacheValue{Val: "-2", Rule: "-2,-1,0,1,2"}, true)
+	testCache.Set(cacheValue{Val: "3", Rule: "-2,-1,0,1,2"}, false)
+	testCache.Set(cacheValue{Val: "4", Rule: "-2,-1,0,1,2"}, false)
+	testCache.Set(cacheValue{Val: "5", Rule: "-2,-1,0,1,2"}, false)
+	testCache.Set(cacheValue{Val: "a", Rule: "as,zx,cv,df"}, false)
+	testCache.Set(cacheValue{Val: "c", Rule: "as,zx,cv,df"}, false)
+	testCache.Set(cacheValue{Val: "zx", Rule: "as,zx,cv,df"}, true)
+	testCache.Set(cacheValue{Val: "as", Rule: "as,zx,cv,df"}, true)
+
+	regexpCache.Reset()
+	inCache.Reset()
+	outCache.Reset()
+
+	t.Run("Out", func(t *testing.T) {
+		test := UserRole{
+			Ident:  []int{-2, 3, 4, -2, -2, 3, 4, 5},
+			Letter: []string{"a", "c", "as", "zx", "as"},
+		}
+
+		t.Parallel()
+		Validate(test)
+		require.Equal(t, getCacheItems(&testCache), getCacheItems(&outCache))
+	})
 }
