@@ -1,0 +1,16 @@
+goos: linux
+goarch: amd64
+pkg: github.com/mrLexx/cool-golang/hw10_program_optimization
+cpu: AMD Ryzen 7 5800H with Radeon Graphics         
+BenchmarkGetDomainStat-16    	  534818	      1889 ns/op	    4294 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  639620	      1904 ns/op	    4288 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  546884	      1900 ns/op	    4293 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  506487	      2049 ns/op	    4296 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  591304	      2011 ns/op	    4290 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  586810	      2002 ns/op	    4291 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  501297	      2042 ns/op	    4297 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  580182	      2005 ns/op	    4291 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  601177	      1972 ns/op	    4290 B/op	       3 allocs/op
+BenchmarkGetDomainStat-16    	  524412	      1953 ns/op	    4295 B/op	       3 allocs/op
+PASS
+ok  	github.com/mrLexx/cool-golang/hw10_program_optimization	30.214s
