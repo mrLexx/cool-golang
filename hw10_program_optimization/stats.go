@@ -1,11 +1,14 @@
 package hw10programoptimization
 
 import (
-	"encoding/json"
+	"bufio"
+	"errors"
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
+
+	//nolint:depguard
+	"github.com/goccy/go-json"
 )
 
 type User struct {
@@ -18,49 +21,65 @@ type User struct {
 	Address  string
 }
 
+var (
+	ErrBrokenEmail = errors.New("broken email")
+	ErrBrokenJSON  = errors.New("broken JSON")
+	ErrReadJSON    = errors.New("error read JSON")
+)
+
 type DomainStat map[string]int
 
 func GetDomainStat(r io.Reader, domain string) (DomainStat, error) {
-	u, err := getUsers(r)
-	if err != nil {
-		return nil, fmt.Errorf("get users error: %w", err)
-	}
-	return countDomains(u, domain)
+	return countDomains(r, domain)
 }
 
-type users [100_000]User
+func countDomains(r io.Reader, domain string) (DomainStat, error) {
+	var user User
 
-func getUsers(r io.Reader) (result users, err error) {
-	content, err := io.ReadAll(r)
-	if err != nil {
-		return
-	}
-
-	lines := strings.Split(string(content), "\n")
-	for i, line := range lines {
-		var user User
-		if err = json.Unmarshal([]byte(line), &user); err != nil {
-			return
-		}
-		result[i] = user
-	}
-	return
-}
-
-func countDomains(u users, domain string) (DomainStat, error) {
 	result := make(DomainStat)
 
-	for _, user := range u {
-		matched, err := regexp.Match("\\."+domain, []byte(user.Email))
-		if err != nil {
-			return nil, err
+	d := "." + domain
+
+	scanner := bufio.NewScanner(r)
+
+	for scanner.Scan() {
+		if !strings.Contains(scanner.Text(), d) {
+			continue
 		}
 
-		if matched {
-			num := result[strings.ToLower(strings.SplitN(user.Email, "@", 2)[1])]
-			num++
-			result[strings.ToLower(strings.SplitN(user.Email, "@", 2)[1])] = num
+		if err := json.Unmarshal(scanner.Bytes(), &user); err != nil {
+			var jsonErr *json.SyntaxError
+			switch {
+			case errors.As(err, &jsonErr):
+				problemPart := problemJSON(scanner.Bytes(), jsonErr.Offset)
+				return nil, fmt.Errorf("error near '%s' (offset %d): %w", problemPart, jsonErr.Offset, ErrBrokenJSON)
+			default:
+				return nil, fmt.Errorf("broken json: %w", ErrBrokenJSON)
+			}
 		}
+
+		if !strings.HasSuffix(user.Email, d) {
+			continue
+		}
+
+		sp := strings.SplitN(user.Email, "@", 2)
+		if len(sp) != 2 {
+			return nil, fmt.Errorf("broken email %v: %w", user.Email, ErrBrokenEmail)
+		}
+
+		dm := strings.ToLower(sp[1])
+		result[dm]++
 	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error read json (%v): %w", err.Error(), ErrReadJSON)
+	}
+
 	return result, nil
+}
+
+func problemJSON(json []byte, offset int64) []byte {
+	from := min(offset, 10)
+	to := min(int64(len(json))-offset, 10)
+	return json[offset-from : offset+to]
 }

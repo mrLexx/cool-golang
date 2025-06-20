@@ -1,0 +1,15 @@
+goos: linux
+goarch: amd64
+pkg: github.com/mrLexx/cool-golang/hw10_program_optimization
+cpu: AMD Ryzen 7 5800H with Radeon Graphics         
+                 │     old.txt     │               new.txt               │
+                 │     sec/op      │   sec/op     vs base                │
+GetDomainStat-16   6354.958µ ± 12%   1.949µ ± 2%  -99.97% (p=0.000 n=10)
+
+                 │     old.txt      │               new.txt                │
+                 │       B/op       │     B/op      vs base                │
+GetDomainStat-16   1943.444Ki ± 14%   4.194Ki ± 0%  -99.78% (p=0.000 n=10)
+
+                 │     old.txt     │              new.txt               │
+                 │    allocs/op    │ allocs/op   vs base                │
+GetDomainStat-16   18747.500 ± 14%   3.000 ± 0%  -99.98% (p=0.000 n=10)
