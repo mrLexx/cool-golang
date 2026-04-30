@@ -93,7 +93,6 @@ func TestTelnetClient(t *testing.T) {
 			in.WriteString("world\n")
 			err = client.Send()
 			require.Error(t, err)
-
 		}()
 
 		go func() {

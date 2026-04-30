@@ -16,7 +16,6 @@ type TelnetClient interface {
 type telnet struct {
 	address string
 	timeout time.Duration
-	retries int
 	in      io.ReadCloser
 	out     io.Writer
 	conn    net.Conn
@@ -34,7 +33,6 @@ func (t *telnet) Connect() (err error) {
 func (t *telnet) Send() error {
 	_, err := io.Copy(t.conn, t.in)
 	return err
-
 }
 
 func (t *telnet) Receive() error {

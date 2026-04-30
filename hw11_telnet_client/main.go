@@ -34,14 +34,15 @@ func main() {
 	flag.Parse()
 	if len(flag.CommandLine.Args()) < 2 {
 		help()
-		os.Exit(1)
+		return
 	}
 	host = flag.CommandLine.Args()[0]
 	port = flag.CommandLine.Args()[1]
 
 	client := NewTelnetClient(net.JoinHostPort(host, port), timeout, os.Stdin, os.Stdout)
 	if err := client.Connect(); err != nil {
-		log.Fatalf("...error: %v:", err)
+		log.Printf("...error: %v:", err)
+		return
 	}
 
 	log.Printf("...Connected to %v:%v", host, port)
@@ -77,7 +78,7 @@ func main() {
 	}
 
 	if err := client.Close(); err != nil {
-		log.Fatalf("...Error when closing: %v:\n", err)
+		log.Printf("...Error when closing: %v:\n", err)
 	}
 	log.Printf("...The session closed")
 }
